@@ -1,0 +1,11 @@
+<vbox style="padding: 5px;">
+<menubar id="menu" width="100%">
+        <menu text="File">
+            <menuitem id="open" text="&amp;Open" shortcutText="Ctrl-O" />
+            <menuitem id="save" text="&amp;Save" disabled="true" shortcutText="Ctrl+S" />
+            <menuitem id="saveas" text="Save As..." disabled="true" />
+            <menuseparator />
+            <menuitem id="exit" text="&amp;Exit" shortcutText="Ctrl+Q" />
+        </menu>
+    </menubar>
+</vbox>
