@@ -4,7 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/share/haxe/lib/hxcpp/4,2,1/include/"
+                "/usr/share/haxe/lib/hxcpp/git/include/"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",

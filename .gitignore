@@ -1,0 +1,11 @@
+haxe/build
+haxe/build/*
+rust/target
+rust/target/*
+*.bnr
+*.app
+Cargo.lock
+haxe/.vscode
+haxe/.vscode/*
+rust/.vscode
+rust/.vscode/*

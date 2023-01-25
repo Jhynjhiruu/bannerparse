@@ -3,10 +3,12 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-void* parse_banner(size_t len, const uint8_t * data);
+    void *parse_banner(size_t len, const uint8_t *data);
+    void drop_banner(void *banner);
 
 #ifdef __cplusplus
 }

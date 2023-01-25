@@ -4,10 +4,34 @@ import haxe.ui.containers.VBox;
 
 @:build(haxe.ui.ComponentBuilder.build("assets/main-view.xml"))
 class MainView extends VBox {
-	final BannerType:haxe.ui.containers.dialogs.Dialogs.FileDialogExtensionInfo = {extension: ".bnr", label: "Banner Files"};
+	final BannerType:haxe.ui.containers.dialogs.Dialogs.FileDialogExtensionInfo = {extension: "bnr", label: "Banner Files"};
+	final ContentType:haxe.ui.containers.dialogs.Dialogs.FileDialogExtensionInfo = {extension: "app", label: "Content Files"};
+
+	var banner = new HaxeRS.Banner();
 
 	public function new() {
 		super();
+		final args = Sys.args();
+		if (args.length > 0) {
+			final fileName = args[0];
+
+			if (sys.FileSystem.exists(fileName) && !sys.FileSystem.isDirectory(fileName)) {
+				final fileData = sys.io.File.getBytes(fileName);
+				openFile({name: fileName, bytes: fileData});
+			}
+		}
+	}
+
+	function openFile(file:{name:String, bytes:haxe.io.Bytes}) {
+		final newBanner = HaxeRS.Banner.parse(file.bytes);
+
+		if (newBanner.valid()) {
+			banner.update(newBanner);
+		} else {
+			haxe.ui.containers.dialogs.Dialogs.messageBox('Failed to open file ${file.name}', "Error", "error");
+		}
+
+		trace(banner);
 	}
 
 	function menuOpen() {
@@ -16,11 +40,11 @@ class MainView extends VBox {
 			readContents: true,
 			title: "Open Banner File",
 			readAsBinary: true,
-			extensions: [BannerType]
+			extensions: [BannerType, ContentType]
 		};
 		dialogue.onDialogClosed = function(event) {
 			if (event.button == haxe.ui.containers.dialogs.Dialog.DialogButton.OK) {
-				HaxeRS.parseBanner(dialogue.selectedFiles[0].bytes);
+				openFile(dialogue.selectedFiles[0]);
 			}
 		}
 		dialogue.show();
@@ -33,7 +57,7 @@ class MainView extends VBox {
 	function menuExit() {}
 
 	@:bind(menu, haxe.ui.containers.menus.Menu.MenuEvent.MENU_SELECTED)
-	private function onSelectMenu(e:haxe.ui.containers.menus.Menu.MenuEvent) {
+	function onSelectMenu(e:haxe.ui.containers.menus.Menu.MenuEvent) {
 		switch (e.menuItem.id) {
 			case "open":
 				menuOpen();

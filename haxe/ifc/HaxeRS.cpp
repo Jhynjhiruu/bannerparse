@@ -8,4 +8,9 @@ namespace hxrs
     {
         return ::parse_banner(data.__length(), data.CheckGetPtr()->Pointer());
     }
+
+    void BannerParse::drop_banner(void *banner)
+    {
+        ::drop_banner(banner);
+    }
 }

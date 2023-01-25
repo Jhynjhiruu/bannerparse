@@ -1,5 +1,5 @@
-<vbox style="padding: 5px;">
-<menubar id="menu" width="100%">
+<vbox width="100%" height="100%">
+    <menubar id="menu" width="100%">
         <menu text="File">
             <menuitem id="open" text="&amp;Open" shortcutText="Ctrl-O" />
             <menuitem id="save" text="&amp;Save" disabled="true" shortcutText="Ctrl+S" />
@@ -8,4 +8,9 @@
             <menuitem id="exit" text="&amp;Exit" shortcutText="Ctrl+Q" />
         </menu>
     </menubar>
+
+    <hbox width="100%" height="100%">
+        <tree-view id="tv1" width="50%" height="100%" />
+        <box width="50%" height="100%" />
+    </hbox>
 </vbox>

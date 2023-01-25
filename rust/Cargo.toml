@@ -3,8 +3,12 @@ name = "banner"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["staticlib"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 binrw = "0.10.0"
+derivative = "2.2.0"
 libc = "0.2.139"
