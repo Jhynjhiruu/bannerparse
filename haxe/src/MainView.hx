@@ -22,6 +22,32 @@ class MainView extends VBox {
 		}
 	}
 
+	function recurseTree(root:haxe.ui.containers.TreeViewNode, path:String) {
+		trace(path);
+		final dir = banner.listDir(path);
+		for (file in dir) {
+			final added = root.addNode({text: file});
+			added.expanded = true;
+			if (file.charAt(file.length - 1) == '/') {
+				sys.FileSystem.createDirectory('.$path$file');
+				recurseTree(added, '$path$file');
+			} else {
+				sys.io.File.write('.$path$file', true).write(banner.getFile('$path$file'));
+			}
+		}
+	}
+
+	function refreshTree() {
+		if (!banner.valid()) {
+			return;
+		}
+
+		tv1.destroyChildren();
+		final root = tv1.addNode({text: "root"});
+		root.expanded = true;
+		recurseTree(root, "/");
+	}
+
 	function openFile(file:{name:String, bytes:haxe.io.Bytes}) {
 		final newBanner = HaxeRS.Banner.parse(file.bytes);
 
@@ -32,6 +58,7 @@ class MainView extends VBox {
 		}
 
 		trace(banner);
+		refreshTree();
 	}
 
 	function menuOpen() {

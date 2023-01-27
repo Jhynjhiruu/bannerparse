@@ -1,5 +1,9 @@
 extern "C" {
     fn alloc(size: libc::c_uint, align: libc::size_t) -> *mut u8;
+    pub fn construct_array_u8(size: libc::c_uint, data: *const u8) -> *mut u8;
+    pub fn new_array_string() -> *mut u8;
+    pub fn array_string_push(arr: *mut u8, str: *const u8);
+    pub fn construct_string(size: libc::c_uint, data: *const u8) -> *mut u8;
 }
 
 pub const HAXE_ALLOCATOR: HXAlloc = HXAlloc::new();
@@ -40,7 +44,5 @@ unsafe impl std::alloc::Allocator for HXAlloc {
         std::ptr::NonNull::new(slc).ok_or(std::alloc::AllocError)
     }
 
-    unsafe fn deallocate(&self, ptr: std::ptr::NonNull<u8>, layout: std::alloc::Layout) {
-        todo!()
-    }
+    unsafe fn deallocate(&self, _: std::ptr::NonNull<u8>, _: std::alloc::Layout) {}
 }

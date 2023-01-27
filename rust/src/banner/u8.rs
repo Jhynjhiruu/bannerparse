@@ -20,9 +20,8 @@ pub enum U8NodeType {
     Directory,
 }
 
-const U8_NODE_SIZE: usize = 0x0C;
-
 #[binrw::binread]
+#[derive(Debug)]
 pub struct U8Node {
     node_type: U8NodeType,
     #[br(map(|x: (u8, u16)| (<u8 as Into<u32>>::into(x.0) << 16) | <u16 as Into<u32>>::into(x.1)))]
@@ -31,145 +30,205 @@ pub struct U8Node {
     size: u32,
 }
 
-// impl U8Node {
-//     fn print(&self, f: &mut std::fmt::Formatter<'_>, ) -> std::fmt::Result {
-//         f.debug_struct("U8Node")
-//             .field("node_type", &self.node_type)
-//             .field("name", &self.name_offset)
-//             .field("size", &self.size)
-//             .finish()
-//     }
-// }
-
-// fn print_nodes(nodes: &Vec<U8Node>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//     let nodes = nodes.iter().map(|e| )
-// }
-
-fn read_nodes<R: std::io::Read + std::io::Seek>(
-    reader: &mut R,
-    ro: &binrw::ReadOptions,
-    _: (),
-) -> binrw::BinResult<Vec<U8Node>> {
-    let root_node = <U8Node>::read_options(reader, ro, ())?;
-    if root_node.node_type != U8NodeType::Directory {
-        return Err(binrw::Error::AssertFail {
-            pos: reader.stream_position()?,
-            message: "Root node is not a directory".to_string(),
-        });
-    }
-
-    let root_size = root_node.size;
-
-    let mut rv = vec![root_node];
-
-    for _ in 1..root_size {
-        rv.push(<_>::read_options(reader, ro, ())?);
-    }
-
-    Ok(rv)
-}
-
-#[binrw::binread]
-pub struct U8Archive {
-    #[br(restore_position)]
-    header: U8Header,
-    #[br(seek_before = std::io::SeekFrom::Current(header.rootnode_offset.into()))]
-    #[br(parse_with = read_nodes)]
-    nodes: Vec<U8Node>,
-    #[br(count = header.header_size - (nodes.len() * U8_NODE_SIZE) as u32)]
-    string_data: Vec<u8>,
-    #[br(parse_with = binrw::until_eof)]
-    #[br(pad_before = header.data_offset - (header.header_size + header.rootnode_offset))]
-    data: Vec<u8>,
-}
-
-impl std::fmt::Debug for U8Archive {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "U8Archive {{\n\theader: {:?}\n\tnodes: {}}}",
-            self.header,
-            match self.format_nodes() {
-                Ok(s) => s,
-                Err(_) => return Err(std::fmt::Error),
-            }
-        )
-    }
-}
-
+#[derive(Debug)]
 pub enum U8Tree {
-    File(String),
+    File(String, Vec<u8>),
     Directory(String, Vec<U8Tree>),
 }
 
-impl std::fmt::Debug for U8Tree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::File(arg0) => f.debug_tuple("File").field(arg0).finish(),
-            Self::Directory(arg0, arg1) => {
-                f.debug_tuple("Directory").field(arg0).field(arg1).finish()
+fn recurse_nodes<R: std::io::Read + std::io::Seek>(
+    reader: &mut R,
+    nodes: &Vec<U8Node>,
+    name_offset: u64,
+    file_offset: u64,
+    idx: &mut u32,
+) -> binrw::BinResult<U8Tree> {
+    let root_node = nodes.get(*idx as usize).ok_or(binrw::Error::AssertFail {
+        pos: 0,
+        message: "Failed to read root node".to_string(),
+    })?;
+    (*idx) += 1;
+
+    reader.seek(std::io::SeekFrom::Start(
+        name_offset + root_node.name_offset as u64,
+    ))?;
+    let name = <binrw::NullString>::read(reader)?.to_string();
+
+    if root_node.node_type != U8NodeType::Directory {
+        return Err(binrw::Error::AssertFail {
+            pos: reader.stream_position()?,
+            message: "Expected root node to be a directory".to_string(),
+        });
+    }
+
+    let mut files = vec![];
+
+    while *idx < root_node.size {
+        let node = nodes.get(*idx as usize).ok_or(binrw::Error::AssertFail {
+            pos: (*idx).into(),
+            message: format!("Failed to read node {}", *idx),
+        })?;
+        files.push(match node.node_type {
+            U8NodeType::File => {
+                reader.seek(std::io::SeekFrom::Start(
+                    name_offset + node.name_offset as u64,
+                ))?;
+                let name = <binrw::NullString>::read(reader)?.to_string();
+                reader.seek(std::io::SeekFrom::Start(
+                    file_offset + node.data_offset as u64,
+                ))?;
+                let data = <Vec<u8>>::read_args(
+                    reader,
+                    binrw::VecArgs {
+                        count: node.size as usize,
+                        inner: (),
+                    },
+                )?;
+
+                U8Tree::File(name, data)
             }
+            U8NodeType::Directory => recurse_nodes(reader, nodes, name_offset, file_offset, idx)?,
+        });
+
+        (*idx) += 1;
+    }
+
+    Ok(U8Tree::Directory(name, files))
+}
+
+impl binrw::BinRead for U8Tree {
+    type Args = u64;
+
+    fn read_options<R: std::io::Read + std::io::Seek>(
+        reader: &mut R,
+        _: &binrw::ReadOptions,
+        file_offset: Self::Args,
+    ) -> binrw::BinResult<Self> {
+        let pos = reader.stream_position()?;
+        let root_node = <U8Node>::read_be(reader)?;
+        let root_size = root_node.size;
+        if root_node.node_type != U8NodeType::Directory {
+            return Err(binrw::Error::AssertFail {
+                pos,
+                message: "Expected root node to be a directory".to_string(),
+            });
+        }
+
+        reader.seek(std::io::SeekFrom::Start(pos))?;
+        let nodes = <Vec<U8Node>>::read_be_args(
+            reader,
+            binrw::VecArgs {
+                count: root_size as usize,
+                inner: (),
+            },
+        )?;
+
+        println!("{:x?}", nodes);
+
+        let name_offset = reader.stream_position()?;
+
+        let mut idx = 0;
+        recurse_nodes(reader, &nodes, name_offset, file_offset, &mut idx)
+    }
+}
+
+#[derive(Debug)]
+pub struct U8Archive {
+    header: U8Header,
+    nodes: U8Tree,
+}
+
+impl binrw::BinRead for U8Archive {
+    type Args = ();
+
+    fn read_options<R: std::io::Read + std::io::Seek>(
+        reader: &mut R,
+        options: &binrw::ReadOptions,
+        _: Self::Args,
+    ) -> binrw::BinResult<Self> {
+        let pos = reader.stream_position()?;
+        let header = <U8Header>::read_be(reader)?;
+
+        reader.seek(std::io::SeekFrom::Start(
+            pos + header.rootnode_offset as u64,
+        ))?;
+
+        let nodes = <_>::read_options(reader, options, pos)?;
+        Ok(Self { header, nodes })
+    }
+}
+
+impl U8Tree {
+    fn name(&self) -> &String {
+        match self {
+            U8Tree::File(f, _) => f,
+            U8Tree::Directory(f, _) => f,
         }
     }
 }
 
 impl U8Archive {
-    fn get_string(&self, offset: u32) -> binrw::BinResult<String> {
-        let mut reader = std::io::Cursor::new(&self.string_data);
-        reader.set_position(offset.into());
-        Ok(
-            binrw::BinReaderExt::read_type::<binrw::NullString>(
-                &mut reader,
-                binrw::Endian::Little,
-            )?
-            .to_string(),
-        )
-    }
-
-    fn _build_tree(&self, start: &mut u32) -> binrw::BinResult<U8Tree> {
-        let root: &U8Node = self.nodes.get(*start as usize).unwrap();
-        *start += 1;
-        if root.node_type == U8NodeType::File {
+    fn find<T: AsRef<std::path::Path>>(&self, path: T) -> binrw::BinResult<&U8Tree> {
+        let mut cur_node = &self.nodes;
+        if let U8Tree::File(f, _) = cur_node {
             return Err(binrw::Error::AssertFail {
-                pos: (*start).into(),
-                message: "Directory node is not a directory".to_string(),
+                pos: 0,
+                message: format!("Root node (\"{}\") is not a directory", f),
             });
-        }
-
-        let mut root_directory = vec![];
-        while *start < root.size {
-            let node: &U8Node = self.nodes.get(*start as usize).unwrap();
-            root_directory.push(match node.node_type {
-                U8NodeType::File => U8Tree::File(self.get_string(node.name_offset)?),
-                U8NodeType::Directory => self._build_tree(start)?,
-            });
-            *start += 1;
-        }
-
-        Ok(U8Tree::Directory(
-            self.get_string(root.name_offset)?,
-            root_directory,
-        ))
-    }
-
-    pub fn build_tree(&self) -> binrw::BinResult<U8Tree> {
-        let mut idx = 0;
-        self._build_tree(&mut idx)
-    }
-
-    fn format_nodes(&self) -> binrw::BinResult<String> {
-        let nodes_res = self
-            .nodes
-            .iter()
-            .map(|e| self.get_string(e.name_offset))
-            .collect::<Vec<_>>();
-        let nodes = {
-            let mut _nodes = vec![];
-            for node in nodes_res {
-                _nodes.push(node?);
-            }
-            _nodes
         };
-        Ok(format!("{:#?}", nodes))
+        for elem in path.as_ref() {
+            println!("next elem: {:?}", elem.to_str());
+            let U8Tree::Directory(_,ref dir) = cur_node else {unreachable!()};
+            let node = dir.iter().find(|&e| e.name() == elem.to_str().unwrap());
+            if let Some(node) = node {
+                match node {
+                    U8Tree::File(_, _) => return Ok(node),
+                    U8Tree::Directory(_, _) => {
+                        cur_node = node;
+                    }
+                }
+            }
+        }
+        Ok(cur_node)
+    }
+
+    pub fn ls<T: AsRef<std::path::Path>>(&self, path: T) -> binrw::BinResult<Vec<String>> {
+        let dir = self.find(path)?;
+
+        if let U8Tree::File(f, _) = dir {
+            return Err(binrw::Error::AssertFail {
+                pos: 0,
+                message: format!("{} is not a directory", f),
+            });
+        }
+
+        let U8Tree::Directory(_, dir) = dir else {unreachable!()};
+
+        Ok(dir
+            .iter()
+            .map(|e| {
+                format!(
+                    "{}{}",
+                    e.name(),
+                    if let U8Tree::Directory(_, _) = e {
+                        "/"
+                    } else {
+                        ""
+                    }
+                )
+            })
+            .collect())
+    }
+
+    pub fn get<T: AsRef<std::path::Path> + Clone>(&self, path: T) -> binrw::BinResult<&Vec<u8>> {
+        let dir = self.find(path.clone())?;
+
+        match dir {
+            U8Tree::File(_, p) => Ok(p),
+            U8Tree::Directory(f, _) => Err(binrw::Error::AssertFail {
+                pos: 0,
+                message: format!("{} is not a file", f),
+            }),
+        }
     }
 }

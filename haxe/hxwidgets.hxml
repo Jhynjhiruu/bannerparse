@@ -8,4 +8,7 @@
 -D ABI=-MD
 -D WXSTATIC
 
+#-D toolchain=circle
+-D toolchain=clang
+
 -cpp build/hxwidgets

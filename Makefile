@@ -1,5 +1,7 @@
 HAXEHXML ?= build.hxml
 
+USE_ZAPCC ?= 0
+
 ifeq ($(DEBUG),1)
 	RUSTBASE ?= banner
 	HAXEBASE ?= Main-debug
@@ -11,9 +13,20 @@ ifeq ($(DEBUG),1)
 
 	RUSTFLAGS ?= build
 	HAXEFLAGS ?= $(HAXEHXML) -debug
+else ifeq ($(USE_ZAPCC),1)
+	RUSTBASE ?= banner
+	HAXEBASE ?= Mainnull
+
+	RUSTDIR ?= rust
+	RUSTBUILD ?= target/release
+	HAXEDIR ?= haxe
+	HAXEBUILD ?= build/hxwidgets
+
+	RUSTFLAGS ?= build --release
+	HAXEFLAGS ?= $(HAXEHXML) -D toolchain=clang
 else
 	RUSTBASE ?= banner
-	HAXEBASE ?= Main
+	HAXEBASE ?= Mainnull
 
 	RUSTDIR ?= rust
 	RUSTBUILD ?= target/release
@@ -61,3 +74,6 @@ $(HAXETARGET): $(RUSTTARGET) $(HAXEDIR)/$(HAXEHXML) $(HAXEDEPEND)
 
 $(RUSTTARGET): $(RUSTDEPEND)
 	(cd $(RUSTDIR) && $(RUST) $(RUSTFLAGS))
+
+clean:
+	rm -rf $(RUSTDIR)/$(RUSTBUILD) $(HAXEDIR)/$(HAXEBUILD)
