@@ -9,6 +9,8 @@
 -D WXSTATIC
 
 #-D toolchain=circle
--D toolchain=clang
+#-D toolchain=clang
+
+-D HXCPP_M64
 
 -cpp build/hxwidgets

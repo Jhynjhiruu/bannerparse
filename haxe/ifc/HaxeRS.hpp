@@ -14,4 +14,11 @@ namespace hxrs
         static ::Array<::String> list_dir(void *banner, ::String path);
         static ::Array<uint8_t> get_file(void *banner, ::String path);
     };
+
+    class IMD5Parse
+    {
+    public:
+        static void *parse_imd5(::Array<uint8_t> data);
+        static void drop_imd5(void *banner);
+    };
 }

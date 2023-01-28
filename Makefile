@@ -26,7 +26,7 @@ else ifeq ($(USE_ZAPCC),1)
 	HAXEFLAGS ?= $(HAXEHXML) -D toolchain=clang
 else
 	RUSTBASE ?= banner
-	HAXEBASE ?= Mainnull
+	HAXEBASE ?= Main
 
 	RUSTDIR ?= rust
 	RUSTBUILD ?= target/release

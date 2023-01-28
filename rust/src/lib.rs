@@ -2,6 +2,7 @@
 #![feature(pointer_is_aligned)]
 
 mod banner;
+mod imd5;
 mod rshaxe;
 
 #[no_mangle]
@@ -17,7 +18,7 @@ extern "C" fn parse_banner(len: libc::size_t, data: *const u8) -> *mut banner::B
         }
     };
 
-    println!("{:x?}", banner);
+    println!("{banner:x?}");
     println!("listing: {:?}", banner.content.ls("/meta").unwrap());
 
     Box::into_raw(Box::new_in(banner, rshaxe::HAXE_ALLOCATOR))
@@ -25,7 +26,7 @@ extern "C" fn parse_banner(len: libc::size_t, data: *const u8) -> *mut banner::B
 
 #[no_mangle]
 extern "C" fn drop_banner(banner: *mut banner::Banner) {
-    println!("dropping banner at {:?}", banner);
+    println!("dropping banner at {banner:?}");
     unsafe { std::ptr::drop_in_place(banner) };
 }
 
@@ -96,22 +97,40 @@ extern "C" fn get_file(
         }
     };
 
-    let rv = {
-        let mut v = file.len().to_le_bytes().to_vec_in(rshaxe::HAXE_ALLOCATOR);
-        v.extend(file);
-        v
-    };
-
     unsafe {
         rshaxe::construct_array_u8(
-            match rv.len().try_into() {
+            match file.len().try_into() {
                 Ok(p) => p,
                 Err(e) => {
                     eprintln!("{e}");
                     return std::ptr::null();
                 }
             },
-            data,
+            file.as_ptr(),
         )
     }
+}
+
+#[no_mangle]
+extern "C" fn parse_imd5(len: libc::size_t, data: *const u8) -> *mut imd5::IMD5 {
+    let data = unsafe { std::slice::from_raw_parts(data, len) };
+    let mut cursor = std::io::Cursor::new(data);
+
+    let imd5 = match imd5::IMD5::parse(&mut cursor) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("{e}");
+            return std::ptr::null_mut();
+        }
+    };
+
+    println!("{imd5:x?}");
+
+    Box::into_raw(Box::new_in(imd5, rshaxe::HAXE_ALLOCATOR))
+}
+
+#[no_mangle]
+extern "C" fn drop_imd5(imd5: *mut imd5::IMD5) {
+    println!("dropping imd5 at {imd5:?}");
+    unsafe { std::ptr::drop_in_place(imd5) };
 }

@@ -2,6 +2,12 @@ package;
 
 import haxe.ui.containers.VBox;
 
+enum abstract FileTypeStack(Int) from Int to Int {
+	var Banner;
+	var BannerFolder;
+	var BannerFile;
+}
+
 @:build(haxe.ui.ComponentBuilder.build("assets/main-view.xml"))
 class MainView extends VBox {
 	final BannerType:haxe.ui.containers.dialogs.Dialogs.FileDialogExtensionInfo = {extension: "bnr", label: "Banner Files"};
@@ -18,6 +24,8 @@ class MainView extends VBox {
 			if (sys.FileSystem.exists(fileName) && !sys.FileSystem.isDirectory(fileName)) {
 				final fileData = sys.io.File.getBytes(fileName);
 				openFile({name: fileName, bytes: fileData});
+			} else {
+				trace("failed");
 			}
 		}
 	}
@@ -26,13 +34,22 @@ class MainView extends VBox {
 		trace(path);
 		final dir = banner.listDir(path);
 		for (file in dir) {
-			final added = root.addNode({text: file});
+			final isDir = file.charAt(file.length - 1) == '/';
+			final added = root.addNode({
+				text: file,
+				id: file,
+				/*, userData: {type: "U8Node"}*/
+			});
 			added.expanded = true;
-			if (file.charAt(file.length - 1) == '/') {
+			if (isDir) {
+				added.data.text = added.text.substr(0, -1);
+				added.data.icon = "haxeui-core/styles/shared/folder-light.png";
 				sys.FileSystem.createDirectory('.$path$file');
 				recurseTree(added, '$path$file');
 			} else {
-				sys.io.File.write('.$path$file', true).write(banner.getFile('$path$file'));
+				final output = sys.io.File.write('.$path$file', true);
+				output.write(banner.getFile('$path$file'));
+				output.close();
 			}
 		}
 	}
@@ -42,8 +59,13 @@ class MainView extends VBox {
 			return;
 		}
 
-		tv1.destroyChildren();
-		final root = tv1.addNode({text: "root"});
+		tree.removeNode(tree.getNodes()[0]);
+		final root = tree.addNode({
+			text: "root",
+			id: "",
+			icon: "haxeui-core/styles/shared/folder-light.png"
+			/*, userData: {type: "U8Root"}*/
+		});
 		root.expanded = true;
 		recurseTree(root, "/");
 	}
@@ -101,5 +123,38 @@ class MainView extends VBox {
 			default:
 				trace("Unhandled menu event " + e.menuItem.id);
 		}
+	}
+
+	function fillBannerPane() {}
+
+	function fillBannerFolderPane() {}
+
+	function fillBannerFilePane() {}
+
+	@:bind(tree, haxe.ui.events.UIEvent.CHANGE)
+	function onSelectTree(e:haxe.ui.events.UIEvent) {
+		final node = tree.selectedNode;
+		if (node != null) {
+			trace(node.nodePath("text"));
+			trace(node.data.id);
+			final isDir = node.data.id.charAt(node.data.id.length - 1) == '/';
+			trace(isDir);
+
+			datapane.selectedIndex = if (node.text == "root") {
+				// fillBannerPane();
+				Banner;
+			} else if (isDir) {
+				// fillBannerFolderPane();
+				BannerFolder;
+			} else {
+				// fillBannerFilePane();
+				BannerFile;
+			}
+		}
+	}
+
+	@:bind(titlelang, haxe.ui.events.UIEvent.CHANGE)
+	function onSelectTitleLang(e:haxe.ui.events.UIEvent) {
+		trace("changed lang");
 	}
 }

@@ -123,8 +123,6 @@ impl binrw::BinRead for U8Tree {
             },
         )?;
 
-        println!("{:x?}", nodes);
-
         let name_offset = reader.stream_position()?;
 
         let mut idx = 0;
@@ -173,11 +171,10 @@ impl U8Archive {
         if let U8Tree::File(f, _) = cur_node {
             return Err(binrw::Error::AssertFail {
                 pos: 0,
-                message: format!("Root node (\"{}\") is not a directory", f),
+                message: format!("Root node (\"{f}\") is not a directory"),
             });
         };
         for elem in path.as_ref() {
-            println!("next elem: {:?}", elem.to_str());
             let U8Tree::Directory(_,ref dir) = cur_node else {unreachable!()};
             let node = dir.iter().find(|&e| e.name() == elem.to_str().unwrap());
             if let Some(node) = node {
@@ -198,7 +195,7 @@ impl U8Archive {
         if let U8Tree::File(f, _) = dir {
             return Err(binrw::Error::AssertFail {
                 pos: 0,
-                message: format!("{} is not a directory", f),
+                message: format!("{f} is not a directory"),
             });
         }
 
@@ -221,13 +218,13 @@ impl U8Archive {
     }
 
     pub fn get<T: AsRef<std::path::Path> + Clone>(&self, path: T) -> binrw::BinResult<&Vec<u8>> {
-        let dir = self.find(path.clone())?;
+        let dir = self.find(path)?;
 
         match dir {
             U8Tree::File(_, p) => Ok(p),
             U8Tree::Directory(f, _) => Err(binrw::Error::AssertFail {
                 pos: 0,
-                message: format!("{} is not a file", f),
+                message: format!("{f} is not a file"),
             }),
         }
     }

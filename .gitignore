@@ -3,6 +3,7 @@ haxe/build/*
 rust/target/
 rust/target/*
 *.bnr
+*.bin
 *.app
 Cargo.lock
 haxe/.vscode/

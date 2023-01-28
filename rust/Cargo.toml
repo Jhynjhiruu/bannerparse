@@ -12,3 +12,4 @@ crate-type = ["staticlib"]
 binrw = "0.10.0"
 derivative = "2.2.0"
 libc = "0.2.139"
+md5 = "0.7.0"

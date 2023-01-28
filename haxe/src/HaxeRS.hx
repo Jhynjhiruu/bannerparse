@@ -13,13 +13,17 @@ typedef VoidPtr = cpp.Pointer.Pointer<cpp.Void.Void>;
 <target id="haxe">
     <libpath name="../../../rust/target/release" unless="debug" />
     <libpath name="../../../rust/target/debug" if="debug" />
+	<libpath name="${USERPROFILE}/.cargo/registry/src/github.com-1ecc6299db9ec823/windows_x86_64_msvc-0.42.0/lib" if="windows" />
+    <lib base="windows" if="windows" />
     <lib base="banner" if="windows" />
     <lib name="-lbanner" unless="windows" />
-    <depend name="../../../rust/target/release/libbanner.a" unless="debug" />
-    <depend name="../../../rust/target/debug/libbanner.a" if="debug" />
+    <depend name="../../../rust/target/release/libbanner.a" unless="debug||windows" />
+    <depend name="../../../rust/target/debug/libbanner.a" if="debug" unless="windows" />
+    <depend name="../../../rust/target/release/banner.lib" unless="debug" if="windows" />
+    <depend name="../../../rust/target/debug/banner.lib" if="debug&&windows" />
 </target>
 
-<linker id="exe" exe="g++">
+<linker id="exe" exe="g++" unless="windows">
     <flag value="-fuse-ld=mold"/>
 </linker>
 ')
@@ -32,6 +36,11 @@ extern class HaxeRS_ifc {
 	static public function listDir(banner:VoidPtr, str:String):Array<String>;
 	@:native("hxrs::BannerParse::get_file")
 	static public function getFile(banner:VoidPtr, str:String):Array<cpp.UInt8>;
+
+	@:native("hxrs::IMD5Parse::parse_imd5")
+	static public function parseIMD5(data:Array<cpp.UInt8>):VoidPtr;
+	@:native("hxrs::IMD5Parse::drop_imd5")
+	static public function dropIMD5(imd5:VoidPtr):Void;
 }
 
 @:cppInclude("../../../ifc/HaxeRS.hpp")
@@ -76,5 +85,32 @@ class Banner {
 			return haxe.io.Bytes.ofData(HaxeRS_ifc.getFile(ptr, dir));
 		}
 		return null;
+	}
+}
+
+@:cppInclude("../../../ifc/HaxeRS.hpp")
+class IMD5 {
+	var ptr:VoidPtr = null;
+
+	public function new(?vp:VoidPtr) {
+		ptr = vp;
+	}
+
+	static public function parse(data:haxe.io.Bytes):IMD5 {
+		return new IMD5(HaxeRS_ifc.parseIMD5(data.getData()));
+	}
+
+	public function drop():Void {
+		if (ptr != null) {
+			HaxeRS_ifc.dropIMD5(ptr);
+			ptr = null;
+		}
+	}
+
+	public function update(rhs:IMD5):Void {
+		if (ptr != null) {
+			drop();
+		}
+		ptr = rhs.ptr;
 	}
 }

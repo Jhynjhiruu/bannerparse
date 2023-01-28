@@ -18,7 +18,7 @@ extern "C"
     }
     void *construct_array_u8(unsigned int size, const uint8_t *data)
     {
-        return new ::Array_obj<uint8_t>(size, size);
+        return ::Array_obj<uint8_t>::fromData(data, size).GetPtr();
     }
     void *new_array_string(void)
     {
