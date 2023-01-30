@@ -4,6 +4,7 @@
 mod banner;
 mod imd5;
 mod rshaxe;
+mod u8;
 
 #[no_mangle]
 extern "C" fn parse_banner(len: libc::size_t, data: *const u8) -> *mut banner::Banner {
@@ -19,7 +20,6 @@ extern "C" fn parse_banner(len: libc::size_t, data: *const u8) -> *mut banner::B
     };
 
     println!("{banner:x?}");
-    println!("listing: {:?}", banner.content.ls("/meta").unwrap());
 
     Box::into_raw(Box::new_in(banner, rshaxe::HAXE_ALLOCATOR))
 }
@@ -31,11 +31,75 @@ extern "C" fn drop_banner(banner: *mut banner::Banner) {
 }
 
 #[no_mangle]
-extern "C" fn list_dir(
-    banner: *const banner::Banner,
-    len: libc::size_t,
-    data: *const u8,
-) -> *const u8 {
+extern "C" fn get_banner(banner: *mut banner::Banner) -> *const u8 {
+    let file = &unsafe { &*banner }.data;
+
+    unsafe {
+        rshaxe::construct_array_u8(
+            match file.len().try_into() {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("{e}");
+                    return std::ptr::null();
+                }
+            },
+            file.as_ptr(),
+        )
+    }
+}
+
+#[no_mangle]
+extern "C" fn get_titles(banner: *mut banner::Banner) -> *const u8 {
+    let rv = unsafe { rshaxe::new_array_string() };
+    for lang in &unsafe { &*banner }.header.names {
+        // uncomment this to escape (some) Unicode characters in titles, e.g.
+        // ゼルダの伝説　ﾄﾜｲﾗｲﾄﾌﾟﾘﾝｾｽ -> ゼルダの伝説\u{3000}ﾄﾜｲﾗｲﾄﾌﾟﾘﾝｾｽ
+        // let lang = lang.escape_debug().to_string();
+        unsafe {
+            rshaxe::array_string_push(
+                rv,
+                rshaxe::construct_string(
+                    match lang.len().try_into() {
+                        Ok(l) => l,
+                        Err(e) => {
+                            eprintln!("{e}");
+                            return std::ptr::null();
+                        }
+                    },
+                    lang.as_ptr(),
+                ),
+            )
+        }
+    }
+    rv
+}
+
+#[no_mangle]
+extern "C" fn parse_u8(len: libc::size_t, data: *const u8) -> *mut u8::U8Archive {
+    let data = unsafe { std::slice::from_raw_parts(data, len) };
+    let mut cursor = std::io::Cursor::new(data);
+
+    let arc = match u8::U8Archive::parse(&mut cursor) {
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("{e}");
+            return std::ptr::null_mut();
+        }
+    };
+
+    println!("listing: {:?}", arc.ls("").unwrap());
+
+    Box::into_raw(Box::new_in(arc, rshaxe::HAXE_ALLOCATOR))
+}
+
+#[no_mangle]
+extern "C" fn drop_u8(arc: *mut u8::U8Archive) {
+    println!("dropping arc at {arc:?}");
+    unsafe { std::ptr::drop_in_place(arc) };
+}
+
+#[no_mangle]
+extern "C" fn list_dir(arc: *const u8::U8Archive, len: libc::size_t, data: *const u8) -> *const u8 {
     let data_slice = unsafe { std::slice::from_raw_parts(data, len) };
     let path = match String::from_utf8(data_slice.to_vec()) {
         Ok(s) => s,
@@ -44,7 +108,7 @@ extern "C" fn list_dir(
             return std::ptr::null();
         }
     };
-    let dir = match unsafe { &*banner }.content.ls(path) {
+    let dir = match unsafe { &*arc }.ls(path) {
         Ok(f) => f,
         Err(e) => {
             eprintln!("{e}");
@@ -77,7 +141,7 @@ extern "C" fn list_dir(
 
 #[no_mangle]
 extern "C" fn get_file(
-    banner: *const banner::Banner,
+    arc: *const u8::U8Archive,
     len: libc::size_t,
     data: *const libc::c_uchar,
 ) -> *const u8 {
@@ -89,7 +153,7 @@ extern "C" fn get_file(
             return std::ptr::null();
         }
     };
-    let file = match unsafe { &*banner }.content.get(path) {
+    let file = match unsafe { &*arc }.get(path) {
         Ok(f) => f,
         Err(e) => {
             eprintln!("{e}");
@@ -133,4 +197,55 @@ extern "C" fn parse_imd5(len: libc::size_t, data: *const u8) -> *mut imd5::IMD5 
 extern "C" fn drop_imd5(imd5: *mut imd5::IMD5) {
     println!("dropping imd5 at {imd5:?}");
     unsafe { std::ptr::drop_in_place(imd5) };
+}
+
+#[no_mangle]
+extern "C" fn get_imd5(imd5: *mut imd5::IMD5) -> *const u8 {
+    let file = &unsafe { &*imd5 }.data;
+
+    unsafe {
+        rshaxe::construct_array_u8(
+            match file.len().try_into() {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("{e}");
+                    return std::ptr::null();
+                }
+            },
+            file.as_ptr(),
+        )
+    }
+}
+
+#[no_mangle]
+extern "C" fn decompress_lz77(len: libc::size_t, data: *const u8) -> *const u8 {
+    let data = unsafe { std::slice::from_raw_parts(data, len) };
+    let dec_data = match match ninty77::LZ77::parse(data) {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("{e}");
+            return std::ptr::null();
+        }
+    }
+    .decompress()
+    {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("{e}");
+            return std::ptr::null();
+        }
+    };
+
+    unsafe {
+        rshaxe::construct_array_u8(
+            match dec_data.len().try_into() {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("{e}");
+                    return std::ptr::null();
+                }
+            },
+            dec_data.as_ptr(),
+        )
+    }
 }

@@ -9,34 +9,34 @@
         </menu>
     </menubar>
 
-    <splitter direction="horizontal" width="100%" height="100%">
-        <box width="50%" height="100%">
-            <tree-view id="tree" width="100%" height="100%" />
-        </box>
-        <box width="50%" height="100%">
-            <stack id="datapane" width="100%" height="100%">
-                <vbox width="100%" height="100%">
-                    <hbox width="100%" height="10%">
-                        <label text="Select language:" />
-                        <dropdown id="titlelang" selectedIndex="1">
-                            <data>
-                                <item text="Japanese (日本語)" />
-                                <item text="English" />
-                                <item text="German (Deutsch)" />
-                                <item text="French (Français)" />
-                                <item text="Spanish (Español)" />
-                                <item text="Italian (Italiano)" />
-                                <item text="Dutch (Nederlands)" />
-                                <item text="Simplified Chinese (简体中文)" />
-                                <item text="Traditional Chinese (繁體中文)" />
-                                <item text="Korean (한국어)" />
-                            </data>
-                        </dropdown>
-                    </hbox>
-                </vbox>
-                <box width="100%" height="100%" />
-                <box width="100%" height="100%" />
-            </stack>
-        </box>
-    </splitter>
+    <hbox width="100%" height="100%">
+        <tree-view id="tree" width="50%" height="100%" />
+        <stack id="datapane" width="50%" height="100%">
+            <grid horizontalAlign="center">
+                <label text="Select language:" verticalAlign="center" horizontalAlign="right" />
+                <dropdown id="titlelang" selectedIndex="1">
+                    <data>
+                        <item text="Japanese (日本語)" />
+                        <item text="English" />
+                        <item text="German (Deutsch)" />
+                        <item text="French (Français)" />
+                        <item text="Spanish (Español)" />
+                        <item text="Italian (Italiano)" />
+                        <item text="Dutch (Nederlands)" />
+                        <item text="Simplified Chinese (简体中文)" />
+                        <item text="Traditional Chinese (繁體中文)" />
+                        <item text="Korean (한국어)" />
+                    </data>
+                </dropdown>
+                <label text="Title:" verticalAlign="center" horizontalAlign="right" />
+                <textfield id="titletext" maxChars="0x54"
+                    placeholder="No title found" width="100%" />
+            </grid>
+            <vbox width="100%" height="100%" />
+            <vbox width="100%" height="100%">
+                <section-header id="filesection" text="No file selected" />
+                <button id="fileexport" text="Export file" horizontalAlign="center" />
+            </vbox>
+        </stack>
+    </hbox>
 </vbox>

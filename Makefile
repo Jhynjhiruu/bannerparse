@@ -48,13 +48,13 @@ HAXE ?= haxe
 RUSTSRC ?= src
 HAXESRC ?= src
 
-_RUSTDEPEND ?= lib.rs rshaxe.rs banner.rs banner/u8.rs
-_HAXEDEPEND ?= Main.hx MainView.hx HaxeRS.hx ../assets/main-view.xml ../ifc/HaxeRS.cpp ../ifc/HaxeRS.hpp ../ifc/HaxeRS.h ../ifc/RSHaxe.cpp ../ifc/RSHaxe.hpp
+_RUSTDEPEND ?= $(shell ls $(RUSTDIR)/$(RUSTSRC))
+_HAXEDEPEND ?= $(shell ls $(HAXEDIR)/$(HAXESRC)) $(foreach file, $(shell ls $(HAXEDIR)/$(HAXESRC)/../assets), ../assets/$(file)) $(foreach file, $(shell ls $(HAXEDIR)/$(HAXESRC)/../ifc), ../ifc/$(file))
 
 RUSTDEPEND ?= $(foreach file, $(_RUSTDEPEND), $(RUSTDIR)/$(RUSTSRC)/$(file))
-HAXEDEPEND ?= $(foreach file, $(_HAXEDEPEND), $(HAXEDIR)/$(HAXESRC)/$(file)) $(RUSTDEPEND)
+HAXEDEPEND ?= $(foreach file, $(_HAXEDEPEND), $(HAXEDIR)/$(HAXESRC)/$(file))
 
-ifeq ($(OS),Windows)
+ifeq ($(OS),Windows_NT)
 	RUSTTARGET ?= $(RUSTDIR)/$(RUSTBUILD)/$(RUSTBASE).lib
 	HAXETARGET ?= $(HAXEDIR)/$(HAXEBUILD)/$(HAXEBASE).exe
 else
@@ -77,3 +77,6 @@ $(RUSTTARGET): $(RUSTDEPEND)
 
 clean:
 	rm -rf $(RUSTDIR)/$(RUSTBUILD) $(HAXEDIR)/$(HAXEBUILD)
+
+clobber:
+	rm -rf $(RUSTTARGET) $(HAXETARGET)

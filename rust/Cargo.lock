@@ -16,6 +16,7 @@ dependencies = [
  "derivative",
  "libc",
  "md5",
+ "ninty77",
 ]
 
 [[package]]
@@ -43,6 +44,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitvec"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bc2832c24239b0141d5674bb9174f9d68a8b5b3f2753311927c172ca46f7e9c"
+dependencies = [
+ "funty",
+ "radium",
+ "tap",
+ "wyz",
+]
+
+[[package]]
 name = "bytemuck"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -66,6 +79,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90e5c1c8368803113bf0c9584fc495a58b86dc8a29edbf8fe877d21d9507e797"
 
 [[package]]
+name = "funty"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
+
+[[package]]
 name = "libc"
 version = "0.2.139"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -76,6 +95,15 @@ name = "md5"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
+
+[[package]]
+name = "ninty77"
+version = "0.1.0"
+dependencies = [
+ "binrw",
+ "bitvec",
+ "derivative",
+]
 
 [[package]]
 name = "owo-colors"
@@ -102,6 +130,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "radium"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
+
+[[package]]
 name = "syn"
 version = "1.0.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -113,7 +147,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tap"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84a22b9f218b40614adcb3f4ff08b703773ad44fa9423e4e0d346d5db86e4ebc"
+
+[[package]]
+name = "wyz"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
+dependencies = [
+ "tap",
+]

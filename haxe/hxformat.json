@@ -1,0 +1,10 @@
+{
+  "whitespace": {
+    "colonPolicy": "none",
+    "caseColonPolicy": "onlyAfter",
+    "objectFieldColonPolicy": "after",
+    "typeHintColonPolicy": "after",
+    "typeCheckColonPolicy": "after",
+    "ternaryPolicy": "around"
+  }
+}

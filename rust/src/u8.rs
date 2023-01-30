@@ -166,6 +166,12 @@ impl U8Tree {
 }
 
 impl U8Archive {
+    pub fn parse<T: std::convert::AsRef<[u8]>>(
+        cursor: &mut std::io::Cursor<T>,
+    ) -> binrw::BinResult<Self> {
+        binrw::BinReaderExt::read_type::<_>(cursor, binrw::endian::LE)
+    }
+
     fn find<T: AsRef<std::path::Path>>(&self, path: T) -> binrw::BinResult<&U8Tree> {
         let mut cur_node = &self.nodes;
         if let U8Tree::File(f, _) = cur_node {

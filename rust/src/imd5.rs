@@ -10,6 +10,7 @@ fn check_hash<R: std::io::Read + std::io::Seek>(
 
     let calc_hash = md5::compute(&data);
     if &calc_hash.0 == hash {
+        reader.seek(std::io::SeekFrom::Start(pos))?;
         Ok(data)
     } else {
         Err(binrw::Error::AssertFail {
@@ -23,16 +24,18 @@ fn check_hash<R: std::io::Read + std::io::Seek>(
 }
 
 #[binrw::binread]
+#[br(big)]
 #[br(magic = b"IMD5")]
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub struct IMD5 {
     filesize: u32,
+    #[br(pad_before(8))]
     hash: [u8; 16],
     #[br(args(filesize as usize, &hash))]
     #[br(parse_with = check_hash)]
     #[derivative(Debug = "ignore")]
-    data: Vec<u8>,
+    pub data: Vec<u8>,
 }
 
 impl IMD5 {

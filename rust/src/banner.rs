@@ -1,7 +1,5 @@
 use std::io::Read;
 
-mod u8;
-
 #[binrw::binread]
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
@@ -13,7 +11,7 @@ pub struct IMETHeader {
     flag1: u32,
     #[br(pad_size_to(588 + 0x54 * 10))]
     #[br(map(|x: [[u16; 0x54 / 2]; 10]| x.iter().map(|e| String::from_utf16_lossy(e).trim_end_matches(char::from(0)).to_owned()).collect()))]
-    names: Vec<String>,
+    pub names: Vec<String>,
     hash: [u8; 16],
 }
 
@@ -25,9 +23,10 @@ pub struct Banner {
     #[br(count = skip)]
     #[derivative(Debug = "ignore")]
     detritis: Vec<u8>,
-    header: IMETHeader,
+    pub header: IMETHeader,
+    #[br(parse_with = binrw::until_eof)]
     #[derivative(Debug = "ignore")]
-    pub content: u8::U8Archive,
+    pub data: Vec<u8>,
 }
 
 #[binrw::binread]

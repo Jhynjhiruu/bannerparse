@@ -1,6 +1,6 @@
 package;
 
-import haxe.ui.containers.VBox;
+using StringTools;
 
 enum abstract FileTypeStack(Int) from Int to Int {
 	var Banner;
@@ -8,15 +8,51 @@ enum abstract FileTypeStack(Int) from Int to Int {
 	var BannerFile;
 }
 
+enum abstract Languages(Int) from Int to Int {
+	var Japanese;
+	var English;
+	var German;
+	var French;
+	var Spanish;
+	var Italian;
+	var Dutch;
+	var SimplifiedChinese;
+	var TraditionalChinese;
+	var Korean;
+}
+
+enum abstract FileTypes(String) {
+	var IMD5 = "494D4435"; // IMD5
+	var LZ77 = "4C5A3737"; // LZ77
+	var U8 = "55AA382D"; // Uª8-
+
+	@:to
+	public function toBytes() {
+		return haxe.io.Bytes.ofHex(this);
+	}
+}
+
+@:build(haxe.ui.macros.ComponentMacros.build("assets/bannerfile-rightclick.xml"))
+class BannerFileRightClick extends haxe.ui.containers.menus.Menu {
+	@:bind(rightclick_export, haxe.ui.events.MouseEvent.CLICK)
+	function onRightClickExport(e: haxe.ui.events.MouseEvent) {
+		trace(e.target);
+	}
+}
+
 @:build(haxe.ui.ComponentBuilder.build("assets/main-view.xml"))
-class MainView extends VBox {
-	final BannerType:haxe.ui.containers.dialogs.Dialogs.FileDialogExtensionInfo = {extension: "bnr", label: "Banner Files"};
-	final ContentType:haxe.ui.containers.dialogs.Dialogs.FileDialogExtensionInfo = {extension: "app", label: "Content Files"};
+class MainView extends haxe.ui.containers.VBox {
+	final BannerType: haxe.ui.containers.dialogs.Dialogs.FileDialogExtensionInfo = {extension: "bnr", label: "Banner Files"};
+	final ContentType: haxe.ui.containers.dialogs.Dialogs.FileDialogExtensionInfo = {extension: "app", label: "Content Files"};
 
 	var banner = new HaxeRS.Banner();
+	var rootArc = new HaxeRS.U8();
+	var strings = new Array<String>();
+	var currBannerFile: {path: String, name: String};
 
 	public function new() {
 		super();
+		setTitle("");
 		final args = Sys.args();
 		if (args.length > 0) {
 			final fileName = args[0];
@@ -27,15 +63,26 @@ class MainView extends VBox {
 			} else {
 				trace("failed");
 			}
+
+			haxe.ui.HaxeUIApp.instance.icon = "haxeui-core/styles/default/haxeui_tiny.png";
 		}
 	}
 
-	function recurseTree(root:haxe.ui.containers.TreeViewNode, path:String) {
-		trace(path);
-		final dir = banner.listDir(path);
+	function setTitle(title) {
+		var pad = if (title != "") {
+			" - ";
+		} else {
+			"";
+		};
+		haxe.ui.HaxeUIApp.instance.title = 'bannerparse$pad$title';
+	}
+
+	function recurseTree(arc: HaxeRS.U8, root: haxe.ui.containers.TreeViewNode, path: String, prepath: String) {
+		trace(path + ", " + prepath);
+		final dir = arc.listDir(path);
 		for (file in dir) {
-			final isDir = file.charAt(file.length - 1) == '/';
-			final added = root.addNode({
+			final isDir = file.endsWith("/");
+			var added = root.addNode({
 				text: file,
 				id: file,
 				/*, userData: {type: "U8Node"}*/
@@ -44,12 +91,51 @@ class MainView extends VBox {
 			if (isDir) {
 				added.data.text = added.text.substr(0, -1);
 				added.data.icon = "haxeui-core/styles/shared/folder-light.png";
-				sys.FileSystem.createDirectory('.$path$file');
-				recurseTree(added, '$path$file');
+				sys.FileSystem.createDirectory('$prepath$path$file');
+				recurseTree(arc, added, '$path$file', prepath);
 			} else {
-				final output = sys.io.File.write('.$path$file', true);
-				output.write(banner.getFile('$path$file'));
-				output.close();
+				var data = arc.getFile('$path$file');
+				var extra = "";
+
+				while (true) {
+					var magic = data.sub(0, 4);
+					if (magic.compare(IMD5) == 0) {
+						final imd5 = HaxeRS.IMD5.parse(data);
+						data = imd5.get();
+						imd5.drop();
+
+						added = added.addNode({
+							text: "imd5",
+							id: "imd5/",
+							/*, userData: {type: "U8Node"}*/
+						});
+						added.expanded = true;
+						sys.FileSystem.createDirectory('$prepath$path$file$extra');
+						extra = '$extra/imd5';
+					} else if (magic.compare(LZ77) == 0) {
+						data = HaxeRS.NintyLZ77.decompress(data);
+
+						added = added.addNode({
+							text: "lz77",
+							id: "lz77/",
+							/*, userData: {type: "U8Node"}*/
+						});
+						added.expanded = true;
+						sys.FileSystem.createDirectory('$prepath$path$file$extra');
+						extra = '$extra/lz77';
+					} else if (magic.compare(U8) == 0) {
+						final u8 = HaxeRS.U8.parse(data);
+						sys.FileSystem.createDirectory('$prepath$path$file$extra');
+						recurseTree(u8, added, "/", '$prepath$path$file$extra');
+						u8.drop();
+						break;
+					} else {
+						final output = sys.io.File.write('$prepath$path$file$extra', true);
+						output.write(data);
+						output.close();
+						break;
+					}
+				}
 			}
 		}
 	}
@@ -59,28 +145,50 @@ class MainView extends VBox {
 			return;
 		}
 
-		tree.removeNode(tree.getNodes()[0]);
+		if (!rootArc.valid()) {
+			return;
+		}
+
+		final node = tree.getNodes()[0];
+		if (node != null) {
+			tree.removeNode(node);
+		}
+
 		final root = tree.addNode({
 			text: "root",
 			id: "",
-			icon: "haxeui-core/styles/shared/folder-light.png"
-			/*, userData: {type: "U8Root"}*/
+			icon: "haxeui-core/styles/shared/folder-light.png",
+			userData: {type: "U8Root"}
 		});
 		root.expanded = true;
-		recurseTree(root, "/");
+		recurseTree(rootArc, root, "/", ".");
 	}
 
-	function openFile(file:{name:String, bytes:haxe.io.Bytes}) {
+	function openFile(file: {name: String, bytes: haxe.io.Bytes}) {
 		final newBanner = HaxeRS.Banner.parse(file.bytes);
 
 		if (newBanner.valid()) {
 			banner.update(newBanner);
+
+			final newU8 = HaxeRS.U8.parse(banner.get());
+			if (newU8.valid()) {
+				rootArc.update(newU8);
+
+				refreshTree();
+
+				strings = banner.getTitles();
+				titlelang.selectedIndex = English;
+				titletext.text = strings[English];
+
+				setTitle(file.name);
+			} else {
+				haxe.ui.containers.dialogs.Dialogs.messageBox('Failed to parse root archive in file ${file.name}', "Error", "error");
+			}
 		} else {
 			haxe.ui.containers.dialogs.Dialogs.messageBox('Failed to open file ${file.name}', "Error", "error");
 		}
 
 		trace(banner);
-		refreshTree();
 	}
 
 	function menuOpen() {
@@ -106,7 +214,7 @@ class MainView extends VBox {
 	function menuExit() {}
 
 	@:bind(menu, haxe.ui.containers.menus.Menu.MenuEvent.MENU_SELECTED)
-	function onSelectMenu(e:haxe.ui.containers.menus.Menu.MenuEvent) {
+	function onSelectMenu(e: haxe.ui.containers.menus.Menu.MenuEvent) {
 		switch (e.menuItem.id) {
 			case "open":
 				menuOpen();
@@ -129,32 +237,70 @@ class MainView extends VBox {
 
 	function fillBannerFolderPane() {}
 
-	function fillBannerFilePane() {}
+	function fillBannerFilePane(path: String, name: String) {
+		currBannerFile = {
+			path: path,
+			name: name
+		};
+		filesection.text = currBannerFile.path;
+	}
+
+	@:bind(fileexport, haxe.ui.events.MouseEvent.CLICK)
+	function exportBannerFile(e: haxe.ui.events.MouseEvent) {
+		final data = rootArc.getFile(currBannerFile.path);
+
+		var dialog = new haxe.ui.containers.dialogs.SaveFileDialog();
+		dialog.options = {
+			title: "Save Banner File",
+			writeAsBinary: true,
+			extensions: [BannerType, ContentType]
+		}
+		dialog.onDialogClosed = function(event) {
+			if (event.button == haxe.ui.containers.dialogs.Dialog.DialogButton.OK) {
+				haxe.ui.containers.dialogs.Dialogs.Dialogs.messageBox("File saved!", "Save Result",
+					haxe.ui.containers.dialogs.MessageBox.MessageBoxType.TYPE_INFO);
+			}
+		}
+		dialog.fileInfo = {
+			name: currBannerFile.name,
+			bytes: data
+		}
+		dialog.show();
+	}
 
 	@:bind(tree, haxe.ui.events.UIEvent.CHANGE)
-	function onSelectTree(e:haxe.ui.events.UIEvent) {
+	function onSelectTree(e: haxe.ui.events.UIEvent) {
 		final node = tree.selectedNode;
 		if (node != null) {
-			trace(node.nodePath("text"));
-			trace(node.data.id);
-			final isDir = node.data.id.charAt(node.data.id.length - 1) == '/';
+			final path = node.nodePath("text");
+			final name = node.data.id;
+			final isDir = StringTools.endsWith(name, "/");
 			trace(isDir);
 
 			datapane.selectedIndex = if (node.text == "root") {
-				// fillBannerPane();
+				fillBannerPane();
 				Banner;
 			} else if (isDir) {
 				// fillBannerFolderPane();
 				BannerFolder;
 			} else {
-				// fillBannerFilePane();
+				fillBannerFilePane(path, name);
 				BannerFile;
 			}
 		}
 	}
 
 	@:bind(titlelang, haxe.ui.events.UIEvent.CHANGE)
-	function onSelectTitleLang(e:haxe.ui.events.UIEvent) {
-		trace("changed lang");
+	function onSelectTitleLang(e: haxe.ui.events.UIEvent) {
+		titletext.text = strings[titlelang.selectedIndex];
+	}
+
+	@:bind(tree, haxe.ui.events.MouseEvent.RIGHT_CLICK)
+	function onRightClickTreeView(e: haxe.ui.events.MouseEvent) {
+		trace("rightclick");
+		var menu = new BannerFileRightClick();
+		menu.left = e.screenX;
+		menu.top = e.screenY;
+		haxe.ui.core.Screen.instance.addComponent(menu);
 	}
 }
