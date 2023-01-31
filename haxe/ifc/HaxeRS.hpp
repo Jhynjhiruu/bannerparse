@@ -37,4 +37,13 @@ namespace hxrs
     public:
         static ::Array<uint8_t> decompress(::Array<uint8_t> data);
     };
+
+    class TPLParse
+    {
+    public:
+        static void *parse_tpl(::Array<uint8_t> data);
+        static void drop_tpl(void *tpl);
+        static uint32_t get_num_imgs(void *tpl);
+        static uint32_t get_size(void *tpl, uint32_t img);
+    };
 }

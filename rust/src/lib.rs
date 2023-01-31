@@ -4,6 +4,7 @@
 mod banner;
 mod imd5;
 mod rshaxe;
+mod tpl;
 mod u8;
 
 #[no_mangle]
@@ -32,7 +33,7 @@ extern "C" fn drop_banner(banner: *mut banner::Banner) {
 
 #[no_mangle]
 extern "C" fn get_banner(banner: *mut banner::Banner) -> *const u8 {
-    let file = &unsafe { &*banner }.data;
+    let file = &unsafe { &*banner }.get_data();
 
     unsafe {
         rshaxe::construct_array_u8(
@@ -51,7 +52,7 @@ extern "C" fn get_banner(banner: *mut banner::Banner) -> *const u8 {
 #[no_mangle]
 extern "C" fn get_titles(banner: *mut banner::Banner) -> *const u8 {
     let rv = unsafe { rshaxe::new_array_string() };
-    for lang in &unsafe { &*banner }.header.names {
+    for lang in unsafe { &*banner }.get_names() {
         // uncomment this to escape (some) Unicode characters in titles, e.g.
         // ゼルダの伝説　ﾄﾜｲﾗｲﾄﾌﾟﾘﾝｾｽ -> ゼルダの伝説\u{3000}ﾄﾜｲﾗｲﾄﾌﾟﾘﾝｾｽ
         // let lang = lang.escape_debug().to_string();
@@ -201,7 +202,7 @@ extern "C" fn drop_imd5(imd5: *mut imd5::IMD5) {
 
 #[no_mangle]
 extern "C" fn get_imd5(imd5: *mut imd5::IMD5) -> *const u8 {
-    let file = &unsafe { &*imd5 }.data;
+    let file = unsafe { &*imd5 }.get_data();
 
     unsafe {
         rshaxe::construct_array_u8(
@@ -248,4 +249,41 @@ extern "C" fn decompress_lz77(len: libc::size_t, data: *const u8) -> *const u8 {
             dec_data.as_ptr(),
         )
     }
+}
+
+#[no_mangle]
+extern "C" fn parse_tpl(len: libc::size_t, data: *const u8) -> *mut tpl::Tpl {
+    let data = unsafe { std::slice::from_raw_parts(data, len) };
+    let mut cursor = std::io::Cursor::new(data);
+
+    let tpl = match tpl::Tpl::parse(&mut cursor) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("{e}");
+            return std::ptr::null_mut();
+        }
+    };
+
+    println!("{tpl:x?}");
+
+    Box::into_raw(Box::new_in(tpl, rshaxe::HAXE_ALLOCATOR))
+}
+
+#[no_mangle]
+extern "C" fn drop_tpl(tpl: *mut tpl::Tpl) {
+    println!("dropping banner at {tpl:?}");
+    unsafe { std::ptr::drop_in_place(tpl) };
+}
+
+#[no_mangle]
+extern "C" fn get_tpl_num_imgs(tpl: *mut tpl::Tpl) -> u32 {
+    unsafe { &*tpl }.get_num_imgs()
+}
+
+#[no_mangle]
+extern "C" fn get_tpl_size(tpl: *mut tpl::Tpl, idx: u32) -> u32 {
+    let (width, height) = unsafe { &*tpl }
+        .get_image_dims(idx as usize)
+        .unwrap_or((0, 0));
+    ((width as u32) << 0x10) | (height as u32)
 }

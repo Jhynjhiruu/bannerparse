@@ -35,7 +35,7 @@ pub struct IMD5 {
     #[br(args(filesize as usize, &hash))]
     #[br(parse_with = check_hash)]
     #[derivative(Debug = "ignore")]
-    pub data: Vec<u8>,
+    data: Vec<u8>,
 }
 
 impl IMD5 {
@@ -43,5 +43,9 @@ impl IMD5 {
         cursor: &mut std::io::Cursor<T>,
     ) -> binrw::BinResult<Self> {
         binrw::BinReaderExt::read_type::<_>(cursor, binrw::endian::LE)
+    }
+
+    pub fn get_data(&self) -> &Vec<u8> {
+        &self.data
     }
 }

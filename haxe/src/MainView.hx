@@ -21,14 +21,31 @@ enum abstract Languages(Int) from Int to Int {
 	var Korean;
 }
 
-enum abstract FileTypes(String) {
-	var IMD5 = "494D4435"; // IMD5
-	var LZ77 = "4C5A3737"; // LZ77
-	var U8 = "55AA382D"; // Uª8-
+enum abstract FileTypes(String) from String to String {
+	var IMET = "494D4554"; // "IMET"
+	var IMD5 = "494D4435"; // "IMD5"
+	var LZ77 = "4C5A3737"; // "LZ77"
+	var U8 = "55AA382D"; // "Uª8-""
+	var U8File = "u8file";
+	var U8Dir = "u8dir";
+	var TPL = "0020AF30"; // "� ¯0"
 
-	@:to
-	public function toBytes() {
-		return haxe.io.Bytes.ofHex(this);
+	function toString() {
+		return switch (this) {
+			case IMET: "IMET";
+			case IMD5: "IMD5";
+			case LZ77: "LZ77";
+			case U8: "U8";
+			case U8File: "U8File";
+			case U8Dir: "U8Dir";
+			case TPL: "TPL";
+			default: "unk";
+		}
+	}
+
+	@:from
+	static function fromBytes(other: haxe.io.Bytes): FileTypes {
+		return other.toHex().toUpperCase();
 	}
 }
 
@@ -38,6 +55,11 @@ class BannerFileRightClick extends haxe.ui.containers.menus.Menu {
 	function onRightClickExport(e: haxe.ui.events.MouseEvent) {
 		trace(e.target);
 	}
+}
+
+interface Directory {
+	public function listDir(dir: String = ""): Array<String>;
+	public function get(path: String = ""): haxe.io.Bytes;
 }
 
 @:build(haxe.ui.ComponentBuilder.build("assets/main-view.xml"))
@@ -85,55 +107,73 @@ class MainView extends haxe.ui.containers.VBox {
 			var added = root.addNode({
 				text: file,
 				id: file,
-				/*, userData: {type: "U8Node"}*/
+				userData: {type: U8File},
 			});
 			added.expanded = true;
 			if (isDir) {
 				added.data.text = added.text.substr(0, -1);
 				added.data.icon = "haxeui-core/styles/shared/folder-light.png";
+				added.data.userData.type = U8Dir;
 				sys.FileSystem.createDirectory('$prepath$path$file');
 				recurseTree(arc, added, '$path$file', prepath);
 			} else {
-				var data = arc.getFile('$path$file');
+				var data = arc.get('$path$file');
 				var extra = "";
 
 				while (true) {
 					var magic = data.sub(0, 4);
-					if (magic.compare(IMD5) == 0) {
-						final imd5 = HaxeRS.IMD5.parse(data);
-						data = imd5.get();
-						imd5.drop();
+					switch (magic: FileTypes) {
+						case IMD5:
+							final imd5 = HaxeRS.IMD5.parse(data);
+							data = imd5.get();
+							imd5.drop();
 
-						added = added.addNode({
-							text: "imd5",
-							id: "imd5/",
-							/*, userData: {type: "U8Node"}*/
-						});
-						added.expanded = true;
-						sys.FileSystem.createDirectory('$prepath$path$file$extra');
-						extra = '$extra/imd5';
-					} else if (magic.compare(LZ77) == 0) {
-						data = HaxeRS.NintyLZ77.decompress(data);
+							added = added.addNode({
+								text: "imd5",
+								id: "imd5/",
+								userData: {type: IMD5},
+							});
+							added.expanded = true;
+							sys.FileSystem.createDirectory('$prepath$path$file$extra');
+							extra = '$extra/imd5';
 
-						added = added.addNode({
-							text: "lz77",
-							id: "lz77/",
-							/*, userData: {type: "U8Node"}*/
-						});
-						added.expanded = true;
-						sys.FileSystem.createDirectory('$prepath$path$file$extra');
-						extra = '$extra/lz77';
-					} else if (magic.compare(U8) == 0) {
-						final u8 = HaxeRS.U8.parse(data);
-						sys.FileSystem.createDirectory('$prepath$path$file$extra');
-						recurseTree(u8, added, "/", '$prepath$path$file$extra');
-						u8.drop();
-						break;
-					} else {
-						final output = sys.io.File.write('$prepath$path$file$extra', true);
-						output.write(data);
-						output.close();
-						break;
+						case LZ77:
+							data = HaxeRS.NintyLZ77.decompress(data);
+
+							added = added.addNode({
+								text: "lz77",
+								id: "lz77/",
+								userData: {type: LZ77},
+							});
+							added.expanded = true;
+							sys.FileSystem.createDirectory('$prepath$path$file$extra');
+							extra = '$extra/lz77';
+
+						case U8:
+							final u8 = HaxeRS.U8.parse(data);
+							sys.FileSystem.createDirectory('$prepath$path$file$extra');
+							recurseTree(u8, added, "/", '$prepath$path$file$extra');
+							u8.drop();
+							break;
+
+						default:
+							trace('${magic.toHex()}, $IMD5, $LZ77, $U8');
+							final output = sys.io.File.write('$prepath$path$file$extra', true);
+
+							added.data.userData.type = switch (magic: FileTypes) {
+								case TPL:
+									final tpl = HaxeRS.TPL.parse(data);
+									tpl.drop();
+
+									TPL;
+
+								default:
+									"unk";
+							}
+
+							output.write(data);
+							output.close();
+							break;
 					}
 				}
 			}
@@ -158,7 +198,7 @@ class MainView extends haxe.ui.containers.VBox {
 			text: "root",
 			id: "",
 			icon: "haxeui-core/styles/shared/folder-light.png",
-			userData: {type: "U8Root"}
+			userData: {type: IMET}
 		});
 		root.expanded = true;
 		recurseTree(rootArc, root, "/", ".");
@@ -233,21 +273,86 @@ class MainView extends haxe.ui.containers.VBox {
 		}
 	}
 
+	function _getPath(root: Directory, path: String) {
+		trace("checking " + path);
+		final components = path.split("/");
+		for (i in 0...components.length) {
+			final comp = components[i];
+			final cur = components.slice(0, i).join("/");
+			final rem = components.slice(i + 1).join("/");
+			trace("\tchecking " + comp + " rem " + rem);
+			final dir = root.listDir(cur);
+			trace("\t\tdir = " + dir);
+			if (dir.contains(comp)) {
+				// file
+				final data = root.get('$cur/$comp');
+
+				var magic = data.sub(0, 4);
+				return switch (magic: FileTypes) {
+					case IMD5:
+						final imd5 = HaxeRS.IMD5.parse(data);
+						final data = _getPath(imd5, rem);
+						imd5.drop();
+						data;
+
+					case LZ77:
+						final lz77 = new HaxeRS.LZ77(data);
+						_getPath(lz77, rem);
+
+					case U8:
+						final u8 = HaxeRS.U8.parse(data);
+						final data = _getPath(u8, rem);
+						u8.drop();
+						data;
+
+					default:
+						data;
+				};
+			} else if (!dir.contains('$comp/')) {
+				// directory not found
+				return null;
+			}
+		}
+		return null;
+	}
+
+	function getPath(root: Directory, path: String) {
+		final path = if (path.startsWith("root/")) {
+			path.substr(5);
+		} else {
+			path;
+		}
+		return _getPath(root, path);
+	}
+
 	function fillBannerPane() {}
 
 	function fillBannerFolderPane() {}
 
-	function fillBannerFilePane(path: String, name: String) {
+	function fillBannerFilePane(path: String, name: String, type: FileTypes) {
 		currBannerFile = {
 			path: path,
 			name: name
 		};
 		filesection.text = currBannerFile.path;
+		switch (type) {
+			case TPL:
+				final data = getPath(rootArc, path);
+				trace(data);
+				final tpl = HaxeRS.TPL.parse(data);
+
+				final dims = tpl.getSize(0);
+				trace(dims);
+
+				tpl.drop();
+
+			default:
+		}
 	}
 
 	@:bind(fileexport, haxe.ui.events.MouseEvent.CLICK)
 	function exportBannerFile(e: haxe.ui.events.MouseEvent) {
-		final data = rootArc.getFile(currBannerFile.path);
+		final data = getPath(rootArc, currBannerFile.path);
 
 		var dialog = new haxe.ui.containers.dialogs.SaveFileDialog();
 		dialog.options = {
@@ -274,18 +379,19 @@ class MainView extends haxe.ui.containers.VBox {
 		if (node != null) {
 			final path = node.nodePath("text");
 			final name = node.data.id;
-			final isDir = StringTools.endsWith(name, "/");
-			trace(isDir);
+			final type: FileTypes = node.data.userData.type;
 
-			datapane.selectedIndex = if (node.text == "root") {
-				fillBannerPane();
-				Banner;
-			} else if (isDir) {
-				// fillBannerFolderPane();
-				BannerFolder;
-			} else {
-				fillBannerFilePane(path, name);
-				BannerFile;
+			datapane.selectedIndex = switch (type) {
+				case IMET:
+					fillBannerPane();
+					0;
+				case U8Dir: 1;
+				case U8File:
+					fillBannerFilePane(path, name, type);
+					2;
+				default:
+					fillBannerFilePane(path, name, type);
+					2;
 			}
 		}
 	}

@@ -23,6 +23,11 @@ extern "C"
 
     void *decompress_lz77(size_t len, const uint8_t *data);
 
+    void *parse_tpl(size_t len, const uint8_t *data);
+    void drop_tpl(void *tpl);
+    uint32_t get_tpl_num_imgs(void *tpl);
+    uint32_t get_tpl_size(void *tpl, uint32_t img);
+
 #ifdef __cplusplus
 }
 #endif

@@ -55,6 +55,15 @@ private extern class HaxeRS_ifc {
 
 	@:native("hxrs::NintyLZ77::decompress")
 	static public function decompressLZ77(data: Array<cpp.UInt8>): Array<cpp.UInt8>;
+
+	@:native("hxrs::TPLParse::parse_tpl")
+	static public function parseTPL(data: Array<cpp.UInt8>): VoidPtr;
+	@:native("hxrs::TPLParse::drop_tpl")
+	static public function dropTPL(tpl: VoidPtr): Void;
+	@:native("hxrs::TPLParse::get_num_imgs")
+	static public function getTPLNumImgs(tpl: VoidPtr): cpp.UInt32;
+	@:native("hxrs::TPLParse::get_size")
+	static public function getTPLSize(tpl: VoidPtr, img: cpp.UInt32): cpp.UInt32;
 }
 
 @:cppInclude("../../../ifc/HaxeRS.hpp")
@@ -103,7 +112,7 @@ class Banner {
 }
 
 @:cppInclude("../../../ifc/HaxeRS.hpp")
-class U8 {
+class U8 implements MainView.Directory {
 	var ptr: VoidPtr = null;
 
 	public function new(?vp: VoidPtr) {
@@ -139,7 +148,7 @@ class U8 {
 		return null;
 	}
 
-	public function getFile(dir: String): haxe.io.Bytes {
+	public function get(dir: String = ""): haxe.io.Bytes {
 		if (this.valid()) {
 			return haxe.io.Bytes.ofData(HaxeRS_ifc.getFile(ptr, dir));
 		}
@@ -148,7 +157,7 @@ class U8 {
 }
 
 @:cppInclude("../../../ifc/HaxeRS.hpp")
-class IMD5 {
+class IMD5 implements MainView.Directory {
 	var ptr: VoidPtr = null;
 
 	public function new(?vp: VoidPtr) {
@@ -170,7 +179,7 @@ class IMD5 {
 		}
 	}
 
-	public function get(): haxe.io.Bytes {
+	public function get(path: String = ""): haxe.io.Bytes {
 		if (this.valid()) {
 			return haxe.io.Bytes.ofData(HaxeRS_ifc.getIMD5(ptr));
 		}
@@ -183,11 +192,83 @@ class IMD5 {
 		}
 		ptr = rhs.ptr;
 	}
+
+	public function listDir(dir: String = ""): Array<String> {
+		return ["imd5"];
+	}
 }
 
 @:cppInclude("../../../ifc/HaxeRS.hpp")
 class NintyLZ77 {
 	static public function decompress(data: haxe.io.Bytes): haxe.io.Bytes {
 		return haxe.io.Bytes.ofData(HaxeRS_ifc.decompressLZ77(data.getData()));
+	}
+}
+
+class LZ77 implements MainView.Directory {
+	final data: haxe.io.Bytes;
+
+	public function new(data: haxe.io.Bytes) {
+		this.data = data;
+	}
+
+	public function listDir(?dir: String): Array<String> {
+		return ["lz77"];
+	}
+
+	public function get(?path: String): haxe.io.Bytes {
+		return NintyLZ77.decompress(data);
+	}
+}
+
+@:cppInclude("../../../ifc/HaxeRS.hpp")
+class TPL {
+	var ptr: VoidPtr = null;
+
+	public function new(?vp: VoidPtr) {
+		ptr = vp;
+	}
+
+	public function valid(): Bool {
+		return ptr != null;
+	}
+
+	static public function parse(data: haxe.io.Bytes): TPL {
+		return new TPL(HaxeRS_ifc.parseTPL(data.getData()));
+	}
+
+	public function drop(): Void {
+		if (this.valid()) {
+			HaxeRS_ifc.dropTPL(ptr);
+			ptr = null;
+		}
+	}
+
+	/*public function get(): haxe.io.Bytes {
+		if (this.valid()) {
+			return haxe.io.Bytes.ofData(HaxeRS_ifc.getIMD5(ptr));
+		}
+		return null;
+	}*/
+	public function update(rhs: TPL): Void {
+		if (this.valid()) {
+			drop();
+		}
+		ptr = rhs.ptr;
+	}
+
+	public function getNumImages(): Int {
+		if (this.valid()) {
+			return HaxeRS_ifc.getTPLNumImgs(ptr);
+		}
+		return 0;
+	}
+
+	public function getSize(img: Int): {width: Int, height: Int} {
+		if (this.valid()) {
+			final hw = HaxeRS_ifc.getTPLSize(ptr, img);
+			return {width: hw >> 0x10, height: hw & 0xFFFF};
+		}
+		return {width: 0, height: 0};
 	}
 }

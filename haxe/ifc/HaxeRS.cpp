@@ -57,4 +57,20 @@ namespace hxrs
         return ::Array<uint8_t>(static_cast<::Array_obj<uint8_t> *>(::decompress_lz77(data.__length(), data.CheckGetPtr()->Pointer())));
     }
 
+    void *TPLParse::parse_tpl(::Array<uint8_t> data)
+    {
+        return ::parse_tpl(data.__length(), data.CheckGetPtr()->Pointer());
+    }
+    void TPLParse::drop_tpl(void *tpl)
+    {
+        ::drop_tpl(tpl);
+    }
+    uint32_t TPLParse::get_num_imgs(void *tpl)
+    {
+        return ::get_tpl_num_imgs(tpl);
+    }
+    uint32_t TPLParse::get_size(void *tpl, uint32_t img)
+    {
+        return ::get_tpl_size(tpl, img);
+    }
 }
