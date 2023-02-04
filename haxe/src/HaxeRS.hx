@@ -67,7 +67,7 @@ private extern class HaxeRS_ifc {
 }
 
 @:cppInclude("../../../ifc/HaxeRS.hpp")
-class Banner {
+class Banner implements MainView.Directory {
 	var ptr: VoidPtr = null;
 
 	public function new(?vp: VoidPtr) {
@@ -89,7 +89,7 @@ class Banner {
 		}
 	}
 
-	public function get(): haxe.io.Bytes {
+	public function get(path: String = ""): haxe.io.Bytes {
 		if (this.valid()) {
 			return haxe.io.Bytes.ofData(HaxeRS_ifc.getBanner(ptr));
 		}
@@ -108,6 +108,10 @@ class Banner {
 			drop();
 		}
 		ptr = rhs.ptr;
+	}
+
+	public function listDir(dir: String = ""): Array<String> {
+		return ["root"];
 	}
 }
 

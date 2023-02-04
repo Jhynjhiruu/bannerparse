@@ -114,7 +114,6 @@ class MainView extends haxe.ui.containers.VBox {
 				added.data.text = added.text.substr(0, -1);
 				added.data.icon = "haxeui-core/styles/shared/folder-light.png";
 				added.data.userData.type = U8Dir;
-				sys.FileSystem.createDirectory('$prepath$path$file');
 				recurseTree(arc, added, '$path$file', prepath);
 			} else {
 				var data = arc.get('$path$file');
@@ -130,11 +129,10 @@ class MainView extends haxe.ui.containers.VBox {
 
 							added = added.addNode({
 								text: "imd5",
-								id: "imd5/",
+								id: "imd5",
 								userData: {type: IMD5},
 							});
 							added.expanded = true;
-							sys.FileSystem.createDirectory('$prepath$path$file$extra');
 							extra = '$extra/imd5';
 
 						case LZ77:
@@ -142,23 +140,20 @@ class MainView extends haxe.ui.containers.VBox {
 
 							added = added.addNode({
 								text: "lz77",
-								id: "lz77/",
+								id: "lz77",
 								userData: {type: LZ77},
 							});
 							added.expanded = true;
-							sys.FileSystem.createDirectory('$prepath$path$file$extra');
 							extra = '$extra/lz77';
 
 						case U8:
 							final u8 = HaxeRS.U8.parse(data);
-							sys.FileSystem.createDirectory('$prepath$path$file$extra');
 							recurseTree(u8, added, "/", '$prepath$path$file$extra');
 							u8.drop();
 							break;
 
 						default:
 							trace('${magic.toHex()}, $IMD5, $LZ77, $U8');
-							final output = sys.io.File.write('$prepath$path$file$extra', true);
 
 							added.data.userData.type = switch (magic: FileTypes) {
 								case TPL:
@@ -170,9 +165,6 @@ class MainView extends haxe.ui.containers.VBox {
 								default:
 									"unk";
 							}
-
-							output.write(data);
-							output.close();
 							break;
 					}
 				}
@@ -273,7 +265,7 @@ class MainView extends haxe.ui.containers.VBox {
 		}
 	}
 
-	function _getPath(root: Directory, path: String) {
+	function getPath(root: Directory, path: String) {
 		trace("checking " + path);
 		final components = path.split("/");
 		for (i in 0...components.length) {
@@ -287,21 +279,25 @@ class MainView extends haxe.ui.containers.VBox {
 				// file
 				final data = root.get('$cur/$comp');
 
+				if (rem == "") {
+					return data;
+				}
+
 				var magic = data.sub(0, 4);
 				return switch (magic: FileTypes) {
 					case IMD5:
 						final imd5 = HaxeRS.IMD5.parse(data);
-						final data = _getPath(imd5, rem);
+						final data = getPath(imd5, rem);
 						imd5.drop();
 						data;
 
 					case LZ77:
 						final lz77 = new HaxeRS.LZ77(data);
-						_getPath(lz77, rem);
+						getPath(lz77, rem);
 
 					case U8:
 						final u8 = HaxeRS.U8.parse(data);
-						final data = _getPath(u8, rem);
+						final data = getPath(u8, rem);
 						u8.drop();
 						data;
 
@@ -316,15 +312,6 @@ class MainView extends haxe.ui.containers.VBox {
 		return null;
 	}
 
-	function getPath(root: Directory, path: String) {
-		final path = if (path.startsWith("root/")) {
-			path.substr(5);
-		} else {
-			path;
-		}
-		return _getPath(root, path);
-	}
-
 	function fillBannerPane() {}
 
 	function fillBannerFolderPane() {}
@@ -337,7 +324,7 @@ class MainView extends haxe.ui.containers.VBox {
 		filesection.text = currBannerFile.path;
 		switch (type) {
 			case TPL:
-				final data = getPath(rootArc, path);
+				final data = getPath(banner, path);
 				trace(data);
 				final tpl = HaxeRS.TPL.parse(data);
 
@@ -352,13 +339,21 @@ class MainView extends haxe.ui.containers.VBox {
 
 	@:bind(fileexport, haxe.ui.events.MouseEvent.CLICK)
 	function exportBannerFile(e: haxe.ui.events.MouseEvent) {
-		final data = getPath(rootArc, currBannerFile.path);
+		final data = getPath(banner, currBannerFile.path);
+		final ext = haxe.io.Path.extension(currBannerFile.path);
+		trace(ext);
 
 		var dialog = new haxe.ui.containers.dialogs.SaveFileDialog();
 		dialog.options = {
 			title: "Save Banner File",
 			writeAsBinary: true,
-			extensions: [BannerType, ContentType]
+			extensions: if (ext != "") {
+				[
+					({extension: ext, label: ""}: haxe.ui.containers.dialogs.Dialogs.FileDialogExtensionInfo)
+				];
+			} else {
+				null;
+			}
 		}
 		dialog.onDialogClosed = function(event) {
 			if (event.button == haxe.ui.containers.dialogs.Dialog.DialogButton.OK) {

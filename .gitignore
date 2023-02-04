@@ -17,3 +17,6 @@ rust/.vscode
 meta/
 meta/*
 meta
+*.brlan
+*.tpl
+*lz77*
