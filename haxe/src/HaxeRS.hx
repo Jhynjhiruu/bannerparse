@@ -70,6 +70,8 @@ private extern class HaxeRS_ifc {
 class Banner implements MainView.Directory {
 	var ptr: VoidPtr = null;
 
+	public final type = MainView.FileTypes.IMET;
+
 	public function new(?vp: VoidPtr) {
 		ptr = vp;
 	}
@@ -104,13 +106,15 @@ class Banner implements MainView.Directory {
 	}
 
 	public function listDir(dir: String = ""): Array<String> {
-		return ["root"];
+		return ["imet"];
 	}
 }
 
 @:cppInclude("../../../ifc/HaxeRS.hpp")
 class U8 implements MainView.Directory {
 	var ptr: VoidPtr = null;
+
+	public final type = MainView.FileTypes.U8;
 
 	public function new(?vp: VoidPtr) {
 		ptr = vp;
@@ -149,6 +153,8 @@ class U8 implements MainView.Directory {
 @:cppInclude("../../../ifc/HaxeRS.hpp")
 class IMD5 implements MainView.Directory {
 	var ptr: VoidPtr = null;
+
+	public final type = MainView.FileTypes.IMD5;
 
 	public function new(?vp: VoidPtr) {
 		ptr = vp;
@@ -191,6 +197,8 @@ class NintyLZ77 {
 class LZ77 implements MainView.Directory {
 	final data: haxe.io.Bytes;
 
+	public final type = MainView.FileTypes.LZ77;
+
 	public function new(data: haxe.io.Bytes) {
 		this.data = data;
 	}
@@ -213,6 +221,8 @@ class LZ77 implements MainView.Directory {
 @:cppInclude("../../../ifc/HaxeRS.hpp")
 class TPL implements MainView.Directory {
 	var ptr: VoidPtr = null;
+
+	public final type = MainView.FileTypes.TPL;
 
 	public function new(?vp: VoidPtr) {
 		ptr = vp;

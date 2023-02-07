@@ -97,7 +97,7 @@ final fileTypeDescriptions = [
 
 @:build(haxe.ui.macros.ComponentMacros.build("assets/bannerfile-rightclick.xml"))
 class BannerFileRightClick extends haxe.ui.containers.menus.Menu {
-	@:bind(rightclick_export, haxe.ui.events.MouseEvent.CLICK)
+	@:bind(this, haxe.ui.events.MouseEvent.CLICK)
 	function onRightClickExport(e: haxe.ui.events.MouseEvent) {
 		trace(e.target);
 	}
@@ -108,6 +108,7 @@ interface Directory {
 	public function get(path: String = ""): haxe.io.Bytes;
 	public function valid(): Bool;
 	public function drop(): Void;
+	final type: FileTypes;
 }
 
 @:forward
@@ -173,8 +174,6 @@ class MainView extends haxe.ui.containers.VBox {
 			if (sys.FileSystem.exists(fileName) && !sys.FileSystem.isDirectory(fileName)) {
 				final fileData = sys.io.File.getBytes(fileName);
 				openFile({name: fileName, bytes: fileData});
-			} else {
-				trace("failed");
 			}
 
 			haxe.ui.HaxeUIApp.instance.icon = "haxeui-core/styles/default/haxeui_tiny.png";
@@ -199,7 +198,12 @@ class MainView extends haxe.ui.containers.VBox {
 				final added = root.addNode({
 					text: file.substr(0, -1),
 					id: file,
-					userData: {type: U8Dir},
+					userData: {
+						type: switch (arc.type) {
+							case U8: U8Dir;
+							default: arc.type;
+						}
+					},
 				});
 				added.expanded = true;
 
@@ -213,7 +217,10 @@ class MainView extends haxe.ui.containers.VBox {
 					text: file,
 					id: file,
 					userData: {
-						type: U8File
+						type: switch (arc.type) {
+							case U8: U8File;
+							default: arc.type;
+						}
 					},
 				});
 
@@ -257,18 +264,12 @@ class MainView extends haxe.ui.containers.VBox {
 	}
 
 	function openFile(file: {name: String, bytes: haxe.io.Bytes}) {
-		trace("opening file");
 		final temp = FileTypes.parse(file.bytes);
 		final newBanner = temp.file;
-		trace("file opened");
-		trace(temp.type);
 
 		if (newBanner != null && newBanner.valid()) {
-			trace("valid");
 			banner.drop();
-			trace("dropped");
 			banner = newBanner;
-			trace("overwritten");
 
 			refreshTree();
 
@@ -276,8 +277,6 @@ class MainView extends haxe.ui.containers.VBox {
 		} else {
 			haxe.ui.containers.dialogs.Dialogs.messageBox('Failed to open file ${file.name}', "Error", "error");
 		}
-
-		trace(banner);
 	}
 
 	function menuOpen() {
@@ -323,15 +322,12 @@ class MainView extends haxe.ui.containers.VBox {
 	}
 
 	function getPath(root: Directory, path: String) {
-		trace("checking " + path);
 		final components = path.split("/");
 		for (i in 0...components.length) {
 			final comp = components[i];
 			final cur = components.slice(0, i).join("/");
 			final rem = components.slice(i + 1).join("/");
-			trace("\tchecking " + comp + " rem " + rem);
 			final dir = root.listDir(cur);
-			trace("\t\tdir = " + dir);
 			if (dir.contains(comp)) {
 				// file
 				final data = root.get('$cur/$comp');
@@ -362,7 +358,7 @@ class MainView extends haxe.ui.containers.VBox {
 	}
 
 	function fillBannerPane(path: String, name: String, type: FileTypes) {
-		final banner = if (path != "") {
+		final banner = if (path != "imet") {
 			HaxeRS.Banner.parse(getPath(banner, path));
 		} else {
 			cast(banner, HaxeRS.Banner);
@@ -371,7 +367,10 @@ class MainView extends haxe.ui.containers.VBox {
 		strings = banner.getTitles();
 		titlelang.selectedIndex = English;
 		titletext.text = strings[English];
-		banner.drop();
+
+		if (path != "imet") {
+			banner.drop();
+		}
 	}
 
 	function fillBannerFolderPane() {}
@@ -385,11 +384,9 @@ class MainView extends haxe.ui.containers.VBox {
 		switch (type) {
 			case TPL:
 				final data = getPath(banner, path);
-				trace(data);
 				final tpl = HaxeRS.TPL.parse(data);
 
 				final dims = tpl.getSize(0);
-				trace(dims);
 
 				tpl.drop();
 
@@ -401,7 +398,6 @@ class MainView extends haxe.ui.containers.VBox {
 	function exportBannerFile(e: haxe.ui.events.MouseEvent) {
 		final data = getPath(banner, currBannerFile.path);
 		final ext = haxe.io.Path.extension(currBannerFile.path);
-		trace(ext);
 
 		var dialog = new haxe.ui.containers.dialogs.SaveFileDialog();
 		dialog.options = {
@@ -416,7 +412,6 @@ class MainView extends haxe.ui.containers.VBox {
 				}
 			} else {
 				final ext = FileTypes.getFileExtension(data);
-				trace(ext);
 				if (ext != "") {
 					final label = fileTypeDescriptions[ext];
 					if (label != null) {
@@ -472,7 +467,6 @@ class MainView extends haxe.ui.containers.VBox {
 
 	@:bind(tree, haxe.ui.events.MouseEvent.RIGHT_CLICK)
 	function onRightClickTreeView(e: haxe.ui.events.MouseEvent) {
-		trace("rightclick");
 		var rightClickMenu = new BannerFileRightClick();
 		rightClickMenu.left = e.screenX;
 		rightClickMenu.top = e.screenY;

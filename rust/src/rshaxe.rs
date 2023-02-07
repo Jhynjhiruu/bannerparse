@@ -32,11 +32,6 @@ unsafe impl std::alloc::Allocator for HXAlloc {
         };
 
         if ptr.is_null() || !ptr.is_aligned_to(layout.align()) {
-            println!(
-                "ptr = {:?}, ptr align = {}",
-                ptr,
-                ptr.is_aligned_to(layout.align())
-            );
             return Err(std::alloc::AllocError);
         }
 

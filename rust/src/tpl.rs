@@ -126,7 +126,6 @@ impl TplImageFormat {
             TplImageFormat::Cmpr => (8, 8, 32),
         };
         let (height, width) = (min_of!(height, block_height), min_of!(width, block_width));
-        println!("{}", height * width * block_size);
         height * width * block_size
     }
 }

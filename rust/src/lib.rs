@@ -7,27 +7,30 @@ mod rshaxe;
 mod tpl;
 mod u8;
 
+macro_rules! unwrap_null {
+    ($s: expr) => {
+        match $s {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("{e}");
+                return std::ptr::null_mut();
+            }
+        }
+    };
+}
+
 #[no_mangle]
 extern "C" fn parse_banner(len: libc::size_t, data: *const u8) -> *mut banner::Banner {
     let data = unsafe { std::slice::from_raw_parts(data, len) };
     let mut cursor = std::io::Cursor::new(data);
 
-    let banner = match banner::Banner::parse(&mut cursor) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("{e}");
-            return std::ptr::null_mut();
-        }
-    };
-
-    println!("{banner:x?}");
+    let banner = unwrap_null!(banner::Banner::parse(&mut cursor));
 
     Box::into_raw(Box::new_in(banner, rshaxe::HAXE_ALLOCATOR))
 }
 
 #[no_mangle]
 extern "C" fn drop_banner(banner: *mut banner::Banner) {
-    println!("dropping banner at {banner:?}");
     unsafe { std::ptr::drop_in_place(banner) };
 }
 
@@ -35,18 +38,7 @@ extern "C" fn drop_banner(banner: *mut banner::Banner) {
 extern "C" fn get_banner(banner: *mut banner::Banner) -> *const u8 {
     let file = &unsafe { &*banner }.get_data();
 
-    unsafe {
-        rshaxe::construct_array_u8(
-            match file.len().try_into() {
-                Ok(p) => p,
-                Err(e) => {
-                    eprintln!("{e}");
-                    return std::ptr::null();
-                }
-            },
-            file.as_ptr(),
-        )
-    }
+    unsafe { rshaxe::construct_array_u8(unwrap_null!(file.len().try_into()), file.as_ptr()) }
 }
 
 #[no_mangle]
@@ -59,16 +51,7 @@ extern "C" fn get_titles(banner: *mut banner::Banner) -> *const u8 {
         unsafe {
             rshaxe::array_string_push(
                 rv,
-                rshaxe::construct_string(
-                    match lang.len().try_into() {
-                        Ok(l) => l,
-                        Err(e) => {
-                            eprintln!("{e}");
-                            return std::ptr::null();
-                        }
-                    },
-                    lang.as_ptr(),
-                ),
+                rshaxe::construct_string(unwrap_null!(lang.len().try_into()), lang.as_ptr()),
             )
         }
     }
@@ -80,42 +63,21 @@ extern "C" fn parse_u8(len: libc::size_t, data: *const u8) -> *mut u8::U8Archive
     let data = unsafe { std::slice::from_raw_parts(data, len) };
     let mut cursor = std::io::Cursor::new(data);
 
-    let arc = match u8::U8Archive::parse(&mut cursor) {
-        Ok(a) => a,
-        Err(e) => {
-            eprintln!("{e}");
-            return std::ptr::null_mut();
-        }
-    };
-
-    println!("listing: {:?}", arc.ls("").unwrap());
+    let arc = unwrap_null!(u8::U8Archive::parse(&mut cursor));
 
     Box::into_raw(Box::new_in(arc, rshaxe::HAXE_ALLOCATOR))
 }
 
 #[no_mangle]
 extern "C" fn drop_u8(arc: *mut u8::U8Archive) {
-    println!("dropping arc at {arc:?}");
     unsafe { std::ptr::drop_in_place(arc) };
 }
 
 #[no_mangle]
 extern "C" fn list_dir(arc: *const u8::U8Archive, len: libc::size_t, data: *const u8) -> *const u8 {
     let data_slice = unsafe { std::slice::from_raw_parts(data, len) };
-    let path = match String::from_utf8(data_slice.to_vec()) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("{e}");
-            return std::ptr::null();
-        }
-    };
-    let dir = match unsafe { &*arc }.ls(path) {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("{e}");
-            return std::ptr::null();
-        }
-    };
+    let path = unwrap_null!(String::from_utf8(data_slice.to_vec()));
+    let dir = unwrap_null!(unsafe { &*arc }.ls(path));
 
     let rv = unsafe { rshaxe::new_array_string() };
 
@@ -123,16 +85,7 @@ extern "C" fn list_dir(arc: *const u8::U8Archive, len: libc::size_t, data: *cons
         unsafe {
             rshaxe::array_string_push(
                 rv,
-                rshaxe::construct_string(
-                    match file.len().try_into() {
-                        Ok(l) => l,
-                        Err(e) => {
-                            eprintln!("{e}");
-                            return std::ptr::null();
-                        }
-                    },
-                    file.as_ptr(),
-                ),
+                rshaxe::construct_string(unwrap_null!(file.len().try_into()), file.as_ptr()),
             )
         }
     }
@@ -147,33 +100,10 @@ extern "C" fn get_file(
     data: *const libc::c_uchar,
 ) -> *const u8 {
     let data_slice = unsafe { std::slice::from_raw_parts(data, len) };
-    let path = match String::from_utf8(data_slice.to_vec()) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("{e}");
-            return std::ptr::null();
-        }
-    };
-    let file = match unsafe { &*arc }.get(path) {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("{e}");
-            return std::ptr::null();
-        }
-    };
+    let path = unwrap_null!(String::from_utf8(data_slice.to_vec()));
+    let file = unwrap_null!(unsafe { &*arc }.get(path));
 
-    unsafe {
-        rshaxe::construct_array_u8(
-            match file.len().try_into() {
-                Ok(p) => p,
-                Err(e) => {
-                    eprintln!("{e}");
-                    return std::ptr::null();
-                }
-            },
-            file.as_ptr(),
-        )
-    }
+    unsafe { rshaxe::construct_array_u8(unwrap_null!(file.len().try_into()), file.as_ptr()) }
 }
 
 #[no_mangle]
@@ -181,22 +111,13 @@ extern "C" fn parse_imd5(len: libc::size_t, data: *const u8) -> *mut imd5::IMD5 
     let data = unsafe { std::slice::from_raw_parts(data, len) };
     let mut cursor = std::io::Cursor::new(data);
 
-    let imd5 = match imd5::IMD5::parse(&mut cursor) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("{e}");
-            return std::ptr::null_mut();
-        }
-    };
-
-    println!("{imd5:x?}");
+    let imd5 = unwrap_null!(imd5::IMD5::parse(&mut cursor));
 
     Box::into_raw(Box::new_in(imd5, rshaxe::HAXE_ALLOCATOR))
 }
 
 #[no_mangle]
 extern "C" fn drop_imd5(imd5: *mut imd5::IMD5) {
-    println!("dropping imd5 at {imd5:?}");
     unsafe { std::ptr::drop_in_place(imd5) };
 }
 
@@ -204,50 +125,16 @@ extern "C" fn drop_imd5(imd5: *mut imd5::IMD5) {
 extern "C" fn get_imd5(imd5: *mut imd5::IMD5) -> *const u8 {
     let file = unsafe { &*imd5 }.get_data();
 
-    unsafe {
-        rshaxe::construct_array_u8(
-            match file.len().try_into() {
-                Ok(p) => p,
-                Err(e) => {
-                    eprintln!("{e}");
-                    return std::ptr::null();
-                }
-            },
-            file.as_ptr(),
-        )
-    }
+    unsafe { rshaxe::construct_array_u8(unwrap_null!(file.len().try_into()), file.as_ptr()) }
 }
 
 #[no_mangle]
 extern "C" fn decompress_lz77(len: libc::size_t, data: *const u8) -> *const u8 {
     let data = unsafe { std::slice::from_raw_parts(data, len) };
-    let dec_data = match match ninty77::LZ77::parse(data) {
-        Ok(l) => l,
-        Err(e) => {
-            eprintln!("{e}");
-            return std::ptr::null();
-        }
-    }
-    .decompress()
-    {
-        Ok(d) => d,
-        Err(e) => {
-            eprintln!("{e}");
-            return std::ptr::null();
-        }
-    };
+    let dec_data = unwrap_null!(unwrap_null!(ninty77::LZ77::parse(data)).decompress());
 
     unsafe {
-        rshaxe::construct_array_u8(
-            match dec_data.len().try_into() {
-                Ok(p) => p,
-                Err(e) => {
-                    eprintln!("{e}");
-                    return std::ptr::null();
-                }
-            },
-            dec_data.as_ptr(),
-        )
+        rshaxe::construct_array_u8(unwrap_null!(dec_data.len().try_into()), dec_data.as_ptr())
     }
 }
 
@@ -256,22 +143,13 @@ extern "C" fn parse_tpl(len: libc::size_t, data: *const u8) -> *mut tpl::Tpl {
     let data = unsafe { std::slice::from_raw_parts(data, len) };
     let mut cursor = std::io::Cursor::new(data);
 
-    let tpl = match tpl::Tpl::parse(&mut cursor) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("{e}");
-            return std::ptr::null_mut();
-        }
-    };
-
-    println!("{tpl:x?}");
+    let tpl = unwrap_null!(tpl::Tpl::parse(&mut cursor));
 
     Box::into_raw(Box::new_in(tpl, rshaxe::HAXE_ALLOCATOR))
 }
 
 #[no_mangle]
 extern "C" fn drop_tpl(tpl: *mut tpl::Tpl) {
-    println!("dropping banner at {tpl:?}");
     unsafe { std::ptr::drop_in_place(tpl) };
 }
 
