@@ -20,3 +20,6 @@ meta
 *.brlan
 *.tpl
 *lz77*
+*.brlyt
+*.bns
+*imd5*

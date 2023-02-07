@@ -103,13 +103,6 @@ class Banner implements MainView.Directory {
 		return null;
 	}
 
-	public function update(rhs: Banner): Void {
-		if (this.valid()) {
-			drop();
-		}
-		ptr = rhs.ptr;
-	}
-
 	public function listDir(dir: String = ""): Array<String> {
 		return ["root"];
 	}
@@ -136,13 +129,6 @@ class U8 implements MainView.Directory {
 			HaxeRS_ifc.dropU8(ptr);
 			ptr = null;
 		}
-	}
-
-	public function update(rhs: U8): Void {
-		if (this.valid()) {
-			drop();
-		}
-		ptr = rhs.ptr;
 	}
 
 	public function listDir(dir: String = ""): Array<String> {
@@ -190,13 +176,6 @@ class IMD5 implements MainView.Directory {
 		return null;
 	}
 
-	public function update(rhs: IMD5): Void {
-		if (this.valid()) {
-			drop();
-		}
-		ptr = rhs.ptr;
-	}
-
 	public function listDir(dir: String = ""): Array<String> {
 		return ["imd5"];
 	}
@@ -216,6 +195,12 @@ class LZ77 implements MainView.Directory {
 		this.data = data;
 	}
 
+	public function valid(): Bool {
+		return true;
+	}
+
+	public function drop(): Void {}
+
 	public function listDir(?dir: String): Array<String> {
 		return ["lz77"];
 	}
@@ -226,7 +211,7 @@ class LZ77 implements MainView.Directory {
 }
 
 @:cppInclude("../../../ifc/HaxeRS.hpp")
-class TPL {
+class TPL implements MainView.Directory {
 	var ptr: VoidPtr = null;
 
 	public function new(?vp: VoidPtr) {
@@ -254,13 +239,6 @@ class TPL {
 		}
 		return null;
 	}*/
-	public function update(rhs: TPL): Void {
-		if (this.valid()) {
-			drop();
-		}
-		ptr = rhs.ptr;
-	}
-
 	public function getNumImages(): Int {
 		if (this.valid()) {
 			return HaxeRS_ifc.getTPLNumImgs(ptr);
@@ -274,5 +252,13 @@ class TPL {
 			return {width: hw >> 0x10, height: hw & 0xFFFF};
 		}
 		return {width: 0, height: 0};
+	}
+
+	public function listDir(?dir: String): Array<String> {
+		return [];
+	}
+
+	public function get(?path: String): haxe.io.Bytes {
+		throw new haxe.exceptions.NotImplementedException();
 	}
 }
