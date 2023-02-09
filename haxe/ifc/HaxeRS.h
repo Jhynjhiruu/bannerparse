@@ -26,7 +26,8 @@ extern "C"
     void *parse_tpl(size_t len, const uint8_t *data);
     void drop_tpl(void *tpl);
     uint32_t get_tpl_num_imgs(void *tpl);
-    uint32_t get_tpl_size(void *tpl, uint32_t img);
+    uint32_t get_tpl_size(void *tpl, uint32_t idx);
+    void *get_tpl_rgba(void *tpl, uint32_t idx);
 
 #ifdef __cplusplus
 }

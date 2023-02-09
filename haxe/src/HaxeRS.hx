@@ -63,7 +63,9 @@ private extern class HaxeRS_ifc {
 	@:native("hxrs::TPLParse::get_num_imgs")
 	static public function getTPLNumImgs(tpl: VoidPtr): cpp.UInt32;
 	@:native("hxrs::TPLParse::get_size")
-	static public function getTPLSize(tpl: VoidPtr, img: cpp.UInt32): cpp.UInt32;
+	static public function getTPLSize(tpl: VoidPtr, idx: cpp.UInt32): cpp.UInt32;
+	@:native("hxrs::TPLParse::get_tpl_rgba")
+	static public function getRGBA(tpl: VoidPtr, idx: cpp.UInt32): Array<cpp.UInt8>;
 }
 
 @:cppInclude("../../../ifc/HaxeRS.hpp")
@@ -256,12 +258,19 @@ class TPL implements MainView.Directory {
 		return 0;
 	}
 
-	public function getSize(img: Int): {width: Int, height: Int} {
+	public function getSize(idx: Int): {width: Int, height: Int} {
 		if (this.valid()) {
-			final hw = HaxeRS_ifc.getTPLSize(ptr, img);
+			final hw = HaxeRS_ifc.getTPLSize(ptr, idx);
 			return {width: hw >> 0x10, height: hw & 0xFFFF};
 		}
 		return {width: 0, height: 0};
+	}
+
+	public function getRGBA(idx: Int): haxe.io.Bytes {
+		if (this.valid()) {
+			return haxe.io.Bytes.ofData(HaxeRS_ifc.getRGBA(ptr, idx));
+		}
+		return null;
 	}
 
 	public function listDir(?dir: String): Array<String> {

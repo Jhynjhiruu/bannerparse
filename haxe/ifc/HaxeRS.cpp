@@ -73,4 +73,8 @@ namespace hxrs
     {
         return ::get_tpl_size(tpl, img);
     }
+    ::Array<uint8_t> TPLParse::get_tpl_rgba(void *tpl, uint32_t idx)
+    {
+        return ::Array<uint8_t>(static_cast<::Array_obj<uint8_t> *>(::get_tpl_rgba(tpl, idx)));
+    }
 }

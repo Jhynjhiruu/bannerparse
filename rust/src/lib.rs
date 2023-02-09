@@ -19,6 +19,18 @@ macro_rules! unwrap_null {
     };
 }
 
+macro_rules! unwrap_option_null {
+    ($s: expr) => {
+        match $s {
+            Some(s) => s,
+            None => {
+                eprintln!("None value unwrapped");
+                return std::ptr::null_mut();
+            }
+        }
+    };
+}
+
 #[no_mangle]
 extern "C" fn parse_banner(len: libc::size_t, data: *const u8) -> *mut banner::Banner {
     let data = unsafe { std::slice::from_raw_parts(data, len) };
@@ -164,4 +176,11 @@ extern "C" fn get_tpl_size(tpl: *mut tpl::Tpl, idx: u32) -> u32 {
         .get_image_dims(idx as usize)
         .unwrap_or((0, 0));
     ((width as u32) << 0x10) | (height as u32)
+}
+
+#[no_mangle]
+extern "C" fn get_tpl_rgba(tpl: *mut tpl::Tpl, idx: u32) -> *const u8 {
+    let data = unwrap_option_null!(unsafe { &*tpl }.get_as_rgba(idx as usize));
+
+    unsafe { rshaxe::construct_array_u8(unwrap_null!(data.len().try_into()), data.as_ptr()) }
 }

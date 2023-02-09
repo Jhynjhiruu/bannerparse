@@ -109,22 +109,51 @@ pub enum TplImageFormat {
     Cmpr,
 }
 
+#[derive(Debug)]
+struct TplImageFormatInfo {
+    block_width: usize,
+    block_height: usize,
+    block_size: usize,
+    bpp: usize,
+}
+
+impl From<(usize, usize, usize, usize)> for TplImageFormatInfo {
+    fn from(value: (usize, usize, usize, usize)) -> Self {
+        Self {
+            block_width: value.0,
+            block_height: value.1,
+            block_size: value.2,
+            bpp: value.3,
+        }
+    }
+}
+
 impl TplImageFormat {
+    fn get_info(&self) -> TplImageFormatInfo {
+        match self {
+            TplImageFormat::I4 => (8, 8, 32, 4),
+            TplImageFormat::I8 => (8, 4, 32, 8),
+            TplImageFormat::IA4 => (8, 4, 32, 8),
+            TplImageFormat::IA8 => (4, 4, 32, 16),
+            TplImageFormat::RGB565 => (4, 4, 32, 16),
+            TplImageFormat::RGB5A3 => (4, 4, 32, 16),
+            TplImageFormat::RGBA32 => (4, 4, 64, 32),
+            TplImageFormat::C4 => (8, 8, 32, 4),
+            TplImageFormat::C8 => (8, 4, 32, 8),
+            TplImageFormat::C14x2 => (4, 4, 32, 16),
+            TplImageFormat::Cmpr => (8, 8, 32, 4),
+        }
+        .into()
+    }
+
     fn size(&self, height: u16, width: u16) -> usize {
         let (height, width): (usize, usize) = (height.into(), width.into());
-        let (block_height, block_width, block_size) = match self {
-            TplImageFormat::I4 => (8, 8, 32),
-            TplImageFormat::I8 => (4, 8, 32),
-            TplImageFormat::IA4 => (4, 8, 32),
-            TplImageFormat::IA8 => (4, 4, 32),
-            TplImageFormat::RGB565 => (4, 4, 32),
-            TplImageFormat::RGB5A3 => (4, 4, 32),
-            TplImageFormat::RGBA32 => (4, 4, 64),
-            TplImageFormat::C4 => (8, 8, 32),
-            TplImageFormat::C8 => (4, 8, 32),
-            TplImageFormat::C14x2 => (4, 4, 32),
-            TplImageFormat::Cmpr => (8, 8, 32),
-        };
+        let TplImageFormatInfo {
+            block_width,
+            block_height,
+            block_size,
+            bpp,
+        } = self.get_info();
         let (height, width) = (min_of!(height, block_height), min_of!(width, block_width));
         height * width * block_size
     }
@@ -204,5 +233,83 @@ impl Tpl {
         self.images
             .get(idx)
             .map(|i| (i.header.width, i.header.height))
+    }
+
+    fn map_pixels(pixels: &[u8], format: &TplImageFormat) -> Vec<Vec<u8>> {
+        let chunk_size = format.get_info().bpp;
+        if chunk_size == 4 {
+            pixels
+                .iter()
+                .map(|e| vec![vec![e >> 4], vec![e & 0x0F]])
+                .collect::<Vec<Vec<Vec<_>>>>()
+                .concat()
+        } else {
+            pixels.chunks(chunk_size / 8).map(|e| e.to_vec()).collect()
+        }
+    }
+
+    fn conv_pixel(pixel: &[u8], format: &TplImageFormat) -> [u8; 4] {
+        match format {
+            TplImageFormat::I4 => {
+                let i = pixel[0] * 0x11;
+                [i, i, i, 0xFF]
+            }
+            TplImageFormat::I8 => {
+                let i = pixel[0];
+                [i, i, i, 0xFF]
+            }
+            TplImageFormat::IA4 => todo!(),
+            TplImageFormat::IA8 => {
+                let i = pixel[0];
+                let a = pixel[1];
+                [i, i, i, a]
+            }
+            TplImageFormat::RGB565 => todo!(),
+            TplImageFormat::RGB5A3 => todo!(),
+            TplImageFormat::RGBA32 => [pixel[0], pixel[1], pixel[2], pixel[3]],
+            TplImageFormat::C4 => todo!(),
+            TplImageFormat::C8 => todo!(),
+            TplImageFormat::C14x2 => todo!(),
+            TplImageFormat::Cmpr => todo!(),
+        }
+    }
+
+    pub fn get_as_rgba(&self, idx: usize) -> Option<Vec<u8>> {
+        let (width, height) = self.get_image_dims(idx)?;
+        println!("width {width} height {height}");
+        let img = self.images.get(idx)?;
+        let format_info = img.header.format.get_info();
+        println!("{:?}", format_info);
+        let width_in_blocks = min_of!(width as usize, format_info.block_width);
+
+        let blocks = img.data.chunks(format_info.block_size).collect::<Vec<_>>();
+        let mut pixels =
+            std::vec::Vec::with_capacity(width as usize * height as usize * format_info.bpp / 8);
+
+        for y in 0..height as usize {
+            for xblock in 0..width_in_blocks {
+                let block =
+                    blocks.get(xblock + (y / format_info.block_height) * width_in_blocks)?;
+                let block_idx =
+                    (y % format_info.block_height) * format_info.block_width * format_info.bpp / 8;
+                pixels.extend(Self::map_pixels(
+                    &block[block_idx
+                        ..block_idx
+                            + (width as usize - xblock * format_info.block_width)
+                                .min(format_info.block_width)
+                                * format_info.bpp
+                                / 8],
+                    &img.header.format,
+                ));
+            }
+        }
+
+        let rv = pixels
+            .iter()
+            .map(|e| Self::conv_pixel(e, &img.header.format))
+            .collect::<Vec<_>>()
+            .concat();
+
+        Some(rv)
     }
 }

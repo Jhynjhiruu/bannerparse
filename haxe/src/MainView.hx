@@ -385,6 +385,10 @@ class MainView extends haxe.ui.containers.VBox {
 			case TPL:
 				final data = getPath(banner, path);
 				final tpl = HaxeRS.TPL.parse(data);
+				final rgba = tpl.getRGBA(0);
+				final file = sys.io.File.write("tpl.rgba");
+				file.write(rgba);
+				file.close();
 
 				final dims = tpl.getSize(0);
 
