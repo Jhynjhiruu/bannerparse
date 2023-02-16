@@ -24,3 +24,5 @@ meta
 *.bns
 *imd5*
 *.rgba
+*.png
+*.arc

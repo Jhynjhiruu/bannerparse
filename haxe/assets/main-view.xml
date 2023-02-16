@@ -36,6 +36,7 @@
             <vbox width="100%" height="100%">
                 <section-header id="filesection" text="No file selected" />
                 <button id="fileexport" text="Export file" horizontalAlign="center" />
+                <vbox id="tplimages" />
             </vbox>
         </stack>
     </hbox>

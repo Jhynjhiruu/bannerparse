@@ -77,4 +77,9 @@ namespace hxrs
     {
         return ::Array<uint8_t>(static_cast<::Array_obj<uint8_t> *>(::get_tpl_rgba(tpl, idx)));
     }
+
+    ::Array<uint8_t> TPLParse::save_tpl_img(::Array<uint8_t> data, uint32_t width, uint32_t height)
+    {
+        return ::Array<uint8_t>(static_cast<::Array_obj<uint8_t> *>(::save_tpl_img(data.__length(), data.CheckGetPtr()->Pointer(), width, height)));
+    }
 }

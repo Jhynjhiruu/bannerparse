@@ -29,7 +29,9 @@ enum abstract FileTypes(String) from String to String {
 	var U8File = "u8file";
 	var U8Dir = "u8dir";
 	var TPL = "0020AF30"; // "� ¯0"
+	var TPLImg = "tplimg";
 	var BNS = "424E5320"; // "BNS "
+	var PNG = "89504E47"; // "‰PNG"
 
 	function toString() {
 		return switch (this) {
@@ -40,7 +42,9 @@ enum abstract FileTypes(String) from String to String {
 			case U8File: "U8File";
 			case U8Dir: "U8Dir";
 			case TPL: "TPL";
+			case TPLImg: "TPLImg";
 			case BNS: "BNS";
+			case PNG: "PNG";
 			default: "unk";
 		}
 	}
@@ -60,11 +64,15 @@ enum abstract FileTypes(String) from String to String {
 			case U8: "arc";
 			case TPL: "tpl";
 			case BNS: "bns";
+			case PNG: "png";
 			default: "";
 		}
 	}
 
 	public static function parse(data: haxe.io.Bytes): {type: FileTypes, file: Directory} {
+		if (data == null) {
+			return null;
+		}
 		final type: FileTypes = data.sub(0, 4);
 
 		return switch (type) {
@@ -93,6 +101,7 @@ final fileTypeDescriptions = [
 	"brlyt" => "Binary Revolution Layout Files",
 	"brlan" => "Binary Revolution Animation Files",
 	"bns" => "Banner Sound Files",
+	"png" => "Portable Network Graphics Images",
 ];
 
 @:build(haxe.ui.macros.ComponentMacros.build("assets/bannerfile-rightclick.xml"))
@@ -218,7 +227,16 @@ class MainView extends haxe.ui.containers.VBox {
 					id: file,
 					userData: {
 						type: switch (arc.type) {
-							case U8: U8File;
+							case U8: {
+									final fileType: FileTypes = data.sub(0, 4);
+									switch (fileType) {
+										case TPL:
+											TPL;
+										default:
+											U8File;
+									};
+								};
+							case TPL: TPLImg;
 							default: arc.type;
 						}
 					},
@@ -229,7 +247,7 @@ class MainView extends haxe.ui.containers.VBox {
 				final type = temp.type;
 
 				switch (type) {
-					case IMD5 | LZ77 | U8:
+					case IMD5 | LZ77 | U8 | TPL:
 						recurseTree(file, added, "/");
 						added.expanded = true;
 						file.drop();
@@ -238,6 +256,9 @@ class MainView extends haxe.ui.containers.VBox {
 						added.data.userData.type = switch (type) {
 							case TPL:
 								TPL;
+
+							case PNG:
+								TPLImg;
 
 							case IMET:
 								IMET;
@@ -341,7 +362,7 @@ class MainView extends haxe.ui.containers.VBox {
 				final type = temp.type;
 
 				return switch (type) {
-					case IMD5 | U8 | LZ77:
+					case IMD5 | U8 | LZ77 | TPL:
 						final data = getPath(file, rem);
 						file.drop();
 						data;
@@ -355,6 +376,42 @@ class MainView extends haxe.ui.containers.VBox {
 			}
 		}
 		return null;
+	}
+
+	function getParent(root: Directory, path: String) {
+		final components = path.split("/");
+		for (i in 0...components.length) {
+			final comp = components[i];
+			final cur = components.slice(0, i).join("/");
+			final rem = components.slice(i + 1).join("/");
+			final dir = root.listDir(cur);
+			if (dir.contains(comp)) {
+				// file
+				final data = root.get('$cur/$comp');
+
+				if (rem == "") {
+					return root;
+				}
+
+				final temp = FileTypes.parse(data);
+				final file = temp.file;
+				final type = temp.type;
+
+				return switch (type) {
+					case IMD5 | U8 | LZ77 | TPL:
+						final root = getParent(file, rem);
+						file.drop();
+						root;
+
+					default:
+						root;
+				};
+			} else if (!dir.contains('$comp/')) {
+				// directory not found
+				return null;
+			}
+		}
+		return root;
 	}
 
 	function fillBannerPane(path: String, name: String, type: FileTypes) {
@@ -381,31 +438,64 @@ class MainView extends haxe.ui.containers.VBox {
 			name: name
 		};
 		filesection.text = currBannerFile.path;
+		tplimages.removeAllComponents();
 		switch (type) {
 			case TPL:
 				final data = getPath(banner, path);
 				final tpl = HaxeRS.TPL.parse(data);
-				final rgba = tpl.getRGBA(0);
-				final file = sys.io.File.write("tpl.rgba");
-				file.write(rgba);
-				file.close();
+				for (i in 0...tpl.getNumImages()) {
+					final rgba = tpl.getRGBA(i);
+					final dims = tpl.getSize(i);
 
-				final dims = tpl.getSize(0);
+					final img = new hx.widgets.Image(dims.width, dims.height, true);
+					img.imageData.copyRGBA(rgba);
+					final bmp = new hx.widgets.Bitmap(img);
+
+					final comp = new haxe.ui.components.Image();
+					comp.resource = bmp;
+
+					tplimages.addComponent(comp);
+
+					final comp = new haxe.ui.components.Button();
+					comp.text = 'Export $name';
+					comp.onClick = function(e: haxe.ui.events.MouseEvent) {
+						exportFile(HaxeRS.TPL.toPNG(rgba, dims.width, dims.height), haxe.io.Path.withExtension(name, "png"));
+					};
+					tplimages.addComponent(comp);
+				}
 
 				tpl.drop();
+
+			case TPLImg:
+				final tpl = cast(getParent(banner, path), HaxeRS.TPL);
+				final data = getPath(banner, path);
+				final dims = tpl.getSize(tpl.retrieveIndex('/$name'));
+
+				final img = new hx.widgets.Image(data);
+				final bmp = new hx.widgets.Bitmap(img);
+
+				final comp = new haxe.ui.components.Image();
+				comp.resource = bmp;
+
+				tplimages.addComponent(comp);
+
+				final comp = new haxe.ui.components.Button();
+				comp.text = 'Export $name';
+				comp.onClick = function(e: haxe.ui.events.MouseEvent) {
+					exportFile(data, haxe.io.Path.withExtension(name, "png"));
+				};
+				tplimages.addComponent(comp);
 
 			default:
 		}
 	}
 
-	@:bind(fileexport, haxe.ui.events.MouseEvent.CLICK)
-	function exportBannerFile(e: haxe.ui.events.MouseEvent) {
-		final data = getPath(banner, currBannerFile.path);
-		final ext = haxe.io.Path.extension(currBannerFile.path);
+	function exportFile(data: haxe.io.Bytes, path: String) {
+		final ext = haxe.io.Path.extension(path);
 
 		var dialog = new haxe.ui.containers.dialogs.SaveFileDialog();
 		dialog.options = {
-			title: "Save Banner File",
+			title: "Save File",
 			writeAsBinary: true,
 			extensions: if (ext != "") {
 				final label = fileTypeDescriptions[ext];
@@ -435,10 +525,15 @@ class MainView extends haxe.ui.containers.VBox {
 			}
 		}
 		dialog.fileInfo = {
-			name: currBannerFile.name,
+			name: path,
 			bytes: data
 		}
 		dialog.show();
+	}
+
+	@:bind(fileexport, haxe.ui.events.MouseEvent.CLICK)
+	function exportBannerFile(e: haxe.ui.events.MouseEvent) {
+		exportFile(getPath(banner, currBannerFile.path), currBannerFile.path);
 	}
 
 	@:bind(tree, haxe.ui.events.UIEvent.CHANGE)

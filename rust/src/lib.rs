@@ -7,27 +7,39 @@ mod rshaxe;
 mod tpl;
 mod u8;
 
-macro_rules! unwrap_null {
-    ($s: expr) => {
+macro_rules! unwrap_return {
+    ($s: expr, $v: expr) => {
         match $s {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("{e}");
-                return std::ptr::null_mut();
+                return $v;
             }
         }
     };
 }
 
-macro_rules! unwrap_option_null {
+macro_rules! unwrap_null {
     ($s: expr) => {
+        unwrap_return!($s, std::ptr::null_mut())
+    };
+}
+
+macro_rules! unwrap_option_return {
+    ($s: expr, $v: expr, $($arg:tt)*) => {
         match $s {
             Some(s) => s,
             None => {
-                eprintln!("None value unwrapped");
-                return std::ptr::null_mut();
+                eprintln!($($arg)*);
+                return $v;
             }
         }
+    }
+}
+
+macro_rules! unwrap_option_null {
+    ($s: expr) => {
+        unwrap_option_return!($s, std::ptr::null_mut(), "None value unwrapped")
     };
 }
 
@@ -183,4 +195,28 @@ extern "C" fn get_tpl_rgba(tpl: *mut tpl::Tpl, idx: u32) -> *const u8 {
     let data = unwrap_option_null!(unsafe { &*tpl }.get_as_rgba(idx as usize));
 
     unsafe { rshaxe::construct_array_u8(unwrap_null!(data.len().try_into()), data.as_ptr()) }
+}
+
+#[no_mangle]
+extern "C" fn save_tpl_img(
+    len: libc::size_t,
+    data: *const u8,
+    width: u32,
+    height: u32,
+) -> *const u8 {
+    let rgba = unsafe { std::slice::from_raw_parts(data, len) };
+
+    let mut outbuf = vec![];
+    let mut buf = std::io::Cursor::new(&mut outbuf);
+
+    unwrap_null!(image::write_buffer_with_format(
+        &mut buf,
+        rgba,
+        width,
+        height,
+        image::ColorType::Rgba8,
+        image::ImageOutputFormat::Png,
+    ));
+
+    unsafe { rshaxe::construct_array_u8(unwrap_null!(outbuf.len().try_into()), outbuf.as_ptr()) }
 }

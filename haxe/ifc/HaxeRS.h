@@ -28,6 +28,7 @@ extern "C"
     uint32_t get_tpl_num_imgs(void *tpl);
     uint32_t get_tpl_size(void *tpl, uint32_t idx);
     void *get_tpl_rgba(void *tpl, uint32_t idx);
+    void *save_tpl_img(size_t len, const uint8_t *data, uint32_t width, uint32_t height);
 
 #ifdef __cplusplus
 }

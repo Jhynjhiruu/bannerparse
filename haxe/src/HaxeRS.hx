@@ -1,3 +1,5 @@
+using StringTools;
+
 typedef VoidPtr = cpp.Pointer.Pointer<cpp.Void.Void>;
 
 @:buildXml('
@@ -66,6 +68,8 @@ private extern class HaxeRS_ifc {
 	static public function getTPLSize(tpl: VoidPtr, idx: cpp.UInt32): cpp.UInt32;
 	@:native("hxrs::TPLParse::get_tpl_rgba")
 	static public function getRGBA(tpl: VoidPtr, idx: cpp.UInt32): Array<cpp.UInt8>;
+	@:native("hxrs::TPLParse::save_tpl_img")
+	static public function saveTPLImg(data: Array<cpp.UInt8>, width: cpp.UInt32, height: cpp.UInt32): Array<cpp.UInt8>;
 }
 
 @:cppInclude("../../../ifc/HaxeRS.hpp")
@@ -274,10 +278,34 @@ class TPL implements MainView.Directory {
 	}
 
 	public function listDir(?dir: String): Array<String> {
+		if (this.valid()) {
+			return [for (i in 0...getNumImages()) 'tpl$i'];
+		}
 		return [];
 	}
 
+	public function retrieveIndex(path: String = ""): Int {
+		if (this.valid() && path.startsWith("/tpl")) {
+			final img = Std.parseInt(path.substr(4));
+			if (img < getNumImages()) {
+				return img;
+			}
+		}
+		return -1;
+	}
+
 	public function get(?path: String): haxe.io.Bytes {
-		throw new haxe.exceptions.NotImplementedException();
+		if (this.valid()) {
+			final img = retrieveIndex(path);
+			if (img >= 0) {
+				final dims = getSize(img);
+				return toPNG(getRGBA(img), dims.width, dims.height);
+			}
+		}
+		return null;
+	}
+
+	static public function toPNG(data: haxe.io.Bytes, width: Int, height: Int): haxe.io.Bytes {
+		return haxe.io.Bytes.ofData(HaxeRS_ifc.saveTPLImg(data.getData(), width, height));
 	}
 }

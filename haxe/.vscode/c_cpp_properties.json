@@ -4,15 +4,13 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "D:/HaxeToolkit/haxe/lib/hxcpp/git/include/"
+                "/usr/share/haxe/lib/hxcpp/git/include/"
             ],
-            "defines": [
-                "HX_WINDOWS"
-            ],
-            "compilerPath": "D:/programs/x86/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.29.30133/bin/Hostx64/x64/cl.exe",
+            "defines": [],
+            "compilerPath": "/usr/bin/clang++",
             "cStandard": "c17",
-            "cppStandard": "c++14",
-            "intelliSenseMode": "windows-msvc-x64"
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-clang-x64"
         }
     ],
     "version": 4

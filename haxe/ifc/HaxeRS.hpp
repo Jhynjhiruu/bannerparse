@@ -46,5 +46,6 @@ namespace hxrs
         static uint32_t get_num_imgs(void *tpl);
         static uint32_t get_size(void *tpl, uint32_t idx);
         static ::Array<uint8_t> get_tpl_rgba(void *tpl, uint32_t idx);
+        static ::Array<uint8_t> save_tpl_img(::Array<uint8_t> data, uint32_t width, uint32_t height);
     };
 }

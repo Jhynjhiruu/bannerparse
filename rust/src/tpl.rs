@@ -81,7 +81,7 @@ fn parse_palettes<R: std::io::Read + std::io::Seek>(
 }
 
 #[binrw::binread]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TplImageFormat {
     #[br(magic = 0u32)]
     I4,
@@ -236,15 +236,38 @@ impl Tpl {
     }
 
     fn map_pixels(pixels: &[u8], format: &TplImageFormat) -> Vec<Vec<u8>> {
-        let chunk_size = format.get_info().bpp;
-        if chunk_size == 4 {
-            pixels
-                .iter()
-                .map(|e| vec![vec![e >> 4], vec![e & 0x0F]])
-                .collect::<Vec<Vec<Vec<_>>>>()
-                .concat()
+        if format == &TplImageFormat::RGBA32 {
+            let (r, g, b, a) = pixels.iter().enumerate().fold(
+                (vec![], vec![], vec![], vec![]),
+                |(mut r, mut g, mut b, mut a), (idx, &e)| {
+                    match idx {
+                        x if x % 2 == 0 => match idx {
+                            0..=31 => a.push(e),
+                            _ => g.push(e),
+                        },
+                        _ => match idx {
+                            0..=31 => r.push(e),
+                            _ => b.push(e),
+                        },
+                    };
+                    (r, g, b, a)
+                },
+            );
+
+            itertools::izip!(r, g, b, a)
+                .map(|e| vec![e.0, e.1, e.2, e.3])
+                .collect()
         } else {
-            pixels.chunks(chunk_size / 8).map(|e| e.to_vec()).collect()
+            let chunk_size = format.get_info().bpp;
+            if chunk_size == 4 {
+                pixels
+                    .iter()
+                    .map(|e| vec![vec![e >> 4], vec![e & 0x0F]])
+                    .collect::<Vec<Vec<Vec<_>>>>()
+                    .concat()
+            } else {
+                pixels.chunks(chunk_size / 8).map(|e| e.to_vec()).collect()
+            }
         }
     }
 
@@ -260,8 +283,8 @@ impl Tpl {
             }
             TplImageFormat::IA4 => todo!(),
             TplImageFormat::IA8 => {
-                let i = pixel[0];
-                let a = pixel[1];
+                let i = pixel[1];
+                let a = pixel[0];
                 [i, i, i, a]
             }
             TplImageFormat::RGB565 => todo!(),
@@ -288,19 +311,16 @@ impl Tpl {
 
         for y in 0..height as usize {
             for xblock in 0..width_in_blocks {
-                let block =
-                    blocks.get(xblock + (y / format_info.block_height) * width_in_blocks)?;
-                let block_idx =
-                    (y % format_info.block_height) * format_info.block_width * format_info.bpp / 8;
-                pixels.extend(Self::map_pixels(
-                    &block[block_idx
+                let block_idx = (y % format_info.block_height) * format_info.block_width;
+                pixels.extend_from_slice(
+                    &Self::map_pixels(
+                        blocks.get(xblock + (y / format_info.block_height) * width_in_blocks)?,
+                        &img.header.format,
+                    )[block_idx
                         ..block_idx
                             + (width as usize - xblock * format_info.block_width)
-                                .min(format_info.block_width)
-                                * format_info.bpp
-                                / 8],
-                    &img.header.format,
-                ));
+                                .min(format_info.block_width)],
+                );
             }
         }
 

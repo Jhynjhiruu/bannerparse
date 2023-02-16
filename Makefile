@@ -12,7 +12,7 @@ ifeq ($(DEBUG),1)
 	HAXEBUILD ?= build/hxwidgets
 
 	RUSTFLAGS ?= build
-	HAXEFLAGS ?= $(HAXEHXML) -debug
+	HAXEFLAGS ?= $(HAXEHXML) -debug -D HXCPP_CHECK_POINTER
 else ifeq ($(USE_ZAPCC),1)
 	RUSTBASE ?= banner
 	HAXEBASE ?= Mainnull
